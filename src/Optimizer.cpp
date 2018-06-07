@@ -60,6 +60,18 @@ float Optimizer::Error() {
   return error;
 }
 
+float Optimizer::ErrorInteger() {
+  float error = 0;
+  for (auto& example : examples) {
+    Tensor output = Predict(example.input);
+
+    if (output.ArgMax() != example.output.ArgMax())
+      error += 1.f;
+  }
+  error /= float(examples.size());
+  return error;
+}
+
 void Optimizer::Update(float lambda) {
   for (size_t i = 0; i < nodes.size() - 1; ++i) {
     nodes[i]->Update(lambda);

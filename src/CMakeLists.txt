@@ -34,11 +34,13 @@ add_executable(tests
   node/LinearTest.cpp
   node/ReluTest.cpp
   node/SoftmaxTest.cpp
+  test/mnist_test.cpp
   )
 target_link_libraries(tests
   main
   ${GTEST_BOTH_LIBRARIES}
   Threads::Threads
   )
+target_compile_definitions(tests PRIVATE MNIST_DATA_LOCATION="${MNIST_DATA_DIR}")
 gtest_discover_tests(tests)
 add_test(tests tests)

@@ -35,7 +35,21 @@ endif()
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Werror")
 
 # ┌─────────────────────────────────────────────────┐
+# │ MNIST reader                                    │
+# └─────────────────────────────────────────────────┘
+find_package(MNIST PATHS third_party/mnist)
+if(NOT MNIST_FOUND)
+    message(FATAL_ERROR
+     "MNIST loader could not be found.
+     Please execute:
+     git submodule init
+     git submodule update")
+ endif(NOT MNIST_FOUND)
+include_directories(${MNIST_INCLUDE_DIR})
+
+# ┌─────────────────────────────────────────────────┐
 # │ Include the source                              │
 # └─────────────────────────────────────────────────┘
 enable_testing()
+include_directories("third_party/mnist/include/")
 add_subdirectory(src)

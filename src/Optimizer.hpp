@@ -16,6 +16,7 @@ class Optimizer {
    void Train(float lambda, size_t iteration);
    Tensor Predict(const Tensor& input);
    float Error();
+   float ErrorInteger();
 
    std::vector<Example> examples;
    size_t iteration = 0;

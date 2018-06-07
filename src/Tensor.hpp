@@ -21,8 +21,10 @@ struct Tensor {
   static Tensor Random(const std::vector<size_t>& sizes);
   void Randomize();
   float Error();
+  size_t ArgMax();
 
   // Operators.
+  void operator*=(float lambda);
   float& operator[](size_t i) { return values[i]; }
   Tensor operator-(const Tensor& tensor) const;
 };

@@ -20,12 +20,27 @@ Tensor Tensor::operator-(const Tensor& tensor) const {
   return output;
 }
 
+void Tensor::operator*=(float lambda) {
+  for (auto& it : values) {
+    it *= lambda;
+  }
+}
+
 float Tensor::Error() {
   float ret = 0.f;
   for (const auto i : values) {
     ret += i * i;
   }
   return ret;
+}
+
+size_t Tensor::ArgMax() {
+  size_t i_max = 0;
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (values[i] > values[i_max])
+      i_max = i;
+  }
+  return i_max;
 }
 
 std::string Tensor::ToString() {
