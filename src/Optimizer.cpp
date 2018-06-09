@@ -61,7 +61,7 @@ float Optimizer::Error() {
 }
 
 float Optimizer::ErrorInteger() {
-  float error = 0;
+  float error = 0.f;
   for (auto& example : examples) {
     Tensor output = Predict(example.input);
 

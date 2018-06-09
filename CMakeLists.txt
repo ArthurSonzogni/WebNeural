@@ -35,6 +35,16 @@ endif()
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Werror")
 
 # ┌─────────────────────────────────────────────────┐
+# │ OpenMP                                          │
+# └─────────────────────────────────────────────────┘
+find_package(OpenMP)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
+
+# ┌─────────────────────────────────────────────────┐
 # │ MNIST reader                                    │
 # └─────────────────────────────────────────────────┘
 find_package(MNIST PATHS third_party/mnist)
@@ -51,5 +61,4 @@ include_directories(${MNIST_INCLUDE_DIR})
 # │ Include the source                              │
 # └─────────────────────────────────────────────────┘
 enable_testing()
-include_directories("third_party/mnist/include/")
 add_subdirectory(src)

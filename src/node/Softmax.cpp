@@ -30,11 +30,23 @@ void Softmax::Forward() {
 void Softmax::Backward() {
   input_sensitivity.Fill(0.f);
   size_t size = (*input).values.size();
+
+  /* Original.
   for (size_t i = 0; i < size; ++i) {
     for (size_t j = 0; j < size; ++j) {
       float delta = (i == j) ? 1.f : 0.f;
       input_sensitivity[i] +=
           output[i] * (delta - output[j]) * (*output_sensitivity)[j];
     }
+  }
+  */
+
+  // Optimized
+  float accu = 0.0;
+  for (size_t j = 0; j < size; ++j) {
+    accu += -output[j] * output_sensitivity->values[j];
+  }
+  for (size_t i = 0; i < size; ++i) {
+    input_sensitivity[i] = output[i] * (accu + (*output_sensitivity)[i]);
   }
 }

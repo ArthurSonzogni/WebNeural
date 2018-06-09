@@ -14,11 +14,13 @@ Linear::Linear(Node& node, size_t num_output) {
   params_sensitivity = Tensor(params.sizes);
 
   params.Randomize();
+  params *= (1.0 / input_size);
 }
 
 void Linear::Forward() {
-  size_t p = 0;
+  #pragma omp parallel for
   for (size_t o = 0; o < output_size; ++o) {
+    size_t p = o * (input_size + 1);
     float v = 0.f;
 
     // Linear part.

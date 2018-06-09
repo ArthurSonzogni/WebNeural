@@ -20,6 +20,7 @@ struct Tensor {
   void Fill(float value);
   static Tensor Random(const std::vector<size_t>& sizes);
   void Randomize();
+  void UniformRandom();
   float Error();
   size_t ArgMax();
 

@@ -39,12 +39,13 @@ TEST(Softmax, Softmax) {
   Optimizer optimizer(output, 100, examples);
 
   for (int i = 0; i<1000; ++i) {
-    optimizer.Train(1.f, 10000);
+    optimizer.Train(3.f, 10000);
 
     // Check for new predictions.
     float error = optimizer.Error();
     if (error < 0.05)
       break;
+    std::cout << "error = " << error << std::endl;
   }
   EXPECT_LE(optimizer.Error(), 0.05);
 }

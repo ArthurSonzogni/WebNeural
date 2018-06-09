@@ -1,14 +1,24 @@
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(main
+  Image.cpp
+  Image.hpp
   Optimizer.cpp
   Optimizer.hpp
   Tensor.cpp
   Tensor.hpp
+  node/Bias.cpp
+  node/Bias.hpp
+  node/Convolution2D.cpp
+  node/Convolution2D.hpp
+  node/Dropout.cpp
+  node/Dropout.hpp
   node/Input.cpp
   node/Input.hpp
   node/Linear.cpp
   node/Linear.hpp
+  node/MaxPooling.cpp
+  node/MaxPooling.hpp
   node/Node.cpp
   node/Node.hpp
   node/Relu.cpp
@@ -19,7 +29,7 @@ add_library(main
   node/Softmax.hpp
   util.cpp
   util.hpp
-  )
+)
 
 # ┌─────────────────────────────────────────────────┐
 # │ Test                                            │

@@ -68,3 +68,10 @@ void Tensor::Randomize() {
   for(auto& i : values)
     i = random(rng);
 }
+
+void Tensor::UniformRandom() {
+  static std::mt19937 rng;
+  std::uniform_real_distribution<float> random(0.0, 1.0);
+  for (auto& i : values)
+    i = random(rng);
+}
