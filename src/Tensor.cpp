@@ -26,6 +26,12 @@ void Tensor::operator*=(float lambda) {
   }
 }
 
+void Tensor::operator+=(Tensor other) {
+  for (size_t i = 0; i < values.size(); ++i) {
+    values[i] += other[i];
+  }
+}
+
 float Tensor::Error() {
   float ret = 0.f;
   for (const auto i : values) {
@@ -74,4 +80,11 @@ void Tensor::UniformRandom() {
   std::uniform_real_distribution<float> random(0.0, 1.0);
   for (auto& i : values)
     i = random(rng);
+}
+
+float& Tensor::at(size_t x, size_t y) {
+  return values[x + sizes[0] * y];
+}
+float& Tensor::at(size_t x, size_t y, size_t z) {
+  return values[x + sizes[0] * (y + sizes[1] * z)];
 }

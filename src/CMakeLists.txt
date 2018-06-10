@@ -41,6 +41,7 @@ find_package(GTest REQUIRED)
 find_package (Threads)
 include_directories(${GTest_INCLUDE_DIRS})
 add_executable(tests
+  node/Convolution2DTest.cpp
   node/LinearTest.cpp
   node/ReluTest.cpp
   node/SoftmaxTest.cpp

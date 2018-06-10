@@ -80,39 +80,40 @@ TEST(MNIST, CNN) {
 
   // # First convolution layer + pooling
   // {28,28,1}
-  auto l1 = Convolution2D(input, {5, 5}, 32);
+  auto l1 = Convolution2D(input, {5, 5}, 16);
   auto l2 = MaxPooling(l1);
   auto l3 = Relu(l2);
   // {12,12,32}
 
   // # Second convolution layer + pooling
   // {12,12,32}
-  auto l4 = Convolution2D(l3, {5, 5}, 64);
+  auto l4 = Convolution2D(l3, {5, 5}, 32);
   auto l5 = MaxPooling(l4);
   auto l6 = Relu(l5);
   // {4,4,64}
   // {4,4,64}
-  auto linear = Linear(l6, 128);
-  auto relu = Sigmoid(linear);
+  //auto linear = Linear(l6, 128);
+  //auto relu = Sigmoid(linear);
   // {1024}
 
   // # Dropout layer
   // {128}
-  auto drop = Dropout(relu, 0.4);
+  //auto drop = Dropout(relu, 0.4);
   // {128}
 
   // # Readout layer
   // {128}
-  auto l9 = Linear(drop, 10);
+  auto l9 = Linear(l6, 10);
   auto output = Softmax(l9);
   //// {10}
 
-  Optimizer optimizer(output, 1000, training_set);
+  training_set.resize(100);
+  Optimizer optimizer(output, 100, training_set);
   // Optimizer tester(output, 10, testing_set);
 
   float lambda = 1.0f;
   for (int i = 1;; ++i) {
-    optimizer.Train(lambda, training_set.size() / 1000);
+    optimizer.Train(lambda, training_set.size());
 
     float error_training = optimizer.LastError();
     for (int i = 0; i < 100; ++i) {

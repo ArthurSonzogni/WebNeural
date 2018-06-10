@@ -25,9 +25,12 @@ struct Tensor {
   void UniformRandom();
   float Error();
   size_t ArgMax();
+  float& at(size_t x, size_t y);
+  float& at(size_t x, size_t y, size_t z);
 
   // Operators.
   void operator*=(float lambda);
+  void operator+=(Tensor other);
   float& operator[](size_t i) { return values[i]; }
   Tensor operator-(const Tensor& tensor) const;
 };
