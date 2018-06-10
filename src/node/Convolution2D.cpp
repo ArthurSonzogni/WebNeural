@@ -1,4 +1,5 @@
 #include "node/Convolution2D.hpp"
+#include <cmath>
 
 Convolution2D::Convolution2D(Node& node,
                              const std::vector<size_t> sizes,
@@ -30,7 +31,7 @@ Convolution2D::Convolution2D(Node& node,
   output.producer = this;
 
   params = Tensor::Random(size_params);
-  params *= 0.01f / (sizes[0] * sizes[1] * size_input[2]);
+  params *= 1.0f / sqrt(sizes[0] * sizes[1] * size_input[2]);
 
   input_sensitivity = Tensor(input->sizes);
   params_sensitivity = Tensor(params.sizes);

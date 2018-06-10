@@ -1,4 +1,5 @@
 #include "node/Linear.hpp"
+#include <cmath>
 
 Linear::Linear(Node& node, size_t num_output) {
   Link(node);
@@ -14,7 +15,7 @@ Linear::Linear(Node& node, size_t num_output) {
   params_sensitivity = Tensor(params.sizes);
 
   params.Randomize();
-  params *= (0.1f / input_size);
+  params *= 1.f / sqrt(input_size);
 }
 
 void Linear::Forward() {

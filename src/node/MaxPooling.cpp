@@ -35,7 +35,7 @@ void MaxPooling::ForwardZ(float* i, float* o) {
   for (size_t y = 0; y < dim_oy; ++y) {
     for (size_t x = 0; x < dim_ox; ++x) {
       // Do the max of 4 voxel.
-      float m =       i[2 * x + 0 + dim_ix * (2 * y + 0)];
+      float m = i[2 * x + 0 + dim_ix * (2 * y + 0)];
       m = std::max(m, i[2 * x + 1 + dim_ix * (2 * y + 0)]);
       m = std::max(m, i[2 * x + 0 + dim_ix * (2 * y + 1)]);
       m = std::max(m, i[2 * x + 1 + dim_ix * (2 * y + 1)]);

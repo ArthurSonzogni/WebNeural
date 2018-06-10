@@ -80,68 +80,71 @@ TEST(MNIST, CNN) {
 
   // # First convolution layer + pooling
   // {28,28,1}
-  auto l1 = Convolution2D(input, {9, 9}, 16);
+  auto l1 = Convolution2D(input, {5, 5}, 16);
   auto l2 = MaxPooling(l1);
   auto l3 = Relu(l2);
-  // {12,12,32}
+  // {10,10,16}
 
   // # Second convolution layer + pooling
-  // {12,12,32}
-  //auto l4 = Convolution2D(l3, {1, 1}, 32);
-  //auto l5 = MaxPooling(l4);
-  //auto l6 = Relu(l5);
-  // {4,4,64}
-  // {4,4,64}
-  //auto linear = Linear(l6, 128);
-  //auto relu = Sigmoid(linear);
+  // {10,10,16}
+  auto l4 = Convolution2D(l3, {5, 5}, 32);
+  auto l5 = MaxPooling(l4);
+  auto l6 = Relu(l5);
+  // {3,3,32}
+
+  // {3,3,32}
+  auto linear = Linear(l6, 512);
+  auto relu = Sigmoid(linear);
   // {1024}
 
   // # Dropout layer
   // {128}
-  //auto drop = Dropout(relu, 0.4);
+  auto drop = Dropout(relu, 0.4);
   // {128}
 
   // # Readout layer
   // {128}
-  auto l9 = Linear(l3, 10);
-  auto output = Softmax(l9);
+  auto l7 = Linear(relu, 10);
+  auto output = Softmax(l7);
   //// {10}
 
-  training_set.resize(1000);
-  Optimizer optimizer(output, 10, training_set);
-  // Optimizer tester(output, 10, testing_set);
+  //training_set.resize(5000);
+  Optimizer optimizer(output, 21, training_set);
+  Optimizer tester(output, 21, testing_set);
 
   float lambda = 0.1f;
   for (int i = 1;; ++i) {
-    optimizer.Train(lambda, training_set.size());
+    optimizer.Train(lambda, 100);
 
     float error_training = optimizer.LastError();
+
+    //float error_training = optimizer.ErrorInteger();
+    //float error_testing = tester.ErrorInteger();
     for (int i = 0; i < 100; ++i) {
       if (i < error_training * 100)
         std::cout << "#";
       else
         std::cout << "-";
     }
-    std::cout << "  Error "
-              << " " << error_training << " " << std::endl;
+    std::cout << " " << error_training << std::endl;
 
-    // if (optimizer.LastError() < 0.03
+    //Node* op = &l7;
+    //while (op) {
+      //std::cout << op->output_sensitivity->Error() << std::endl;
+      //op = op->input ? op->input->producer : nullptr;
+    //}
 
-    if (i % 2 == 0) {
-      // std::ofstream("layer_1.pgm") << image_PGM(l1.params);
-      // linear.params.sizes = {28,28,32};
-      std::ofstream("l1_output.ppm") << image_PPM(l1.output);
-      std::ofstream("l1.ppm") << image_PPM(l1.params);
-      //std::ofstream("m.pgm") << image_PGM(l2.input_sensitivity);
-      // std::ofstream("l2_output.pgm") << image_PGM(l4.output);
-      // std::ofstream("l2.pgm") << image_PGM(l4.params);
-      // std::ofstream("l2_output.pgm") << image_PGM(l2.output);
-      // std::ofstream("l3_output.pgm") << image_PGM(l3.output);
-      ////std::ofstream("l4_output.pgm") << image_PGM(l4.output);
-      ////std::ofstream("layer_2.pgm") << image_PGM(l4.params);
+    //std::ofstream("output.ppm") << image_PPM(l1.params);
+
+    if (error_training < 0.07) {
+      optimizer.batch_size = 701;
     }
+
+    if (error_training < 0.015)
+      break;
   }
 
-  EXPECT_LE(optimizer.ErrorInteger(), 0.03);
-  // EXPECT_LE(tester.ErrorInteger(), 0.055);
+
+  EXPECT_LE(optimizer.ErrorInteger(), 0.015);
+  EXPECT_LE(tester.ErrorInteger(), 0.016);
 }
