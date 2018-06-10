@@ -20,7 +20,7 @@ std::vector<Example> GetExamples(const std::vector<std::vector<float>>& input,
     input_example.values = input[i];
     for (auto& p : input_example.values) {
       p /= 256.0f;
-      // p = -1.0 + 2.0*p;
+      p = -1.0 + 2.0*p;
     }
 
     auto output_example = Tensor({10});
@@ -80,16 +80,16 @@ TEST(MNIST, CNN) {
 
   // # First convolution layer + pooling
   // {28,28,1}
-  auto l1 = Convolution2D(input, {5, 5}, 16);
+  auto l1 = Convolution2D(input, {9, 9}, 16);
   auto l2 = MaxPooling(l1);
   auto l3 = Relu(l2);
   // {12,12,32}
 
   // # Second convolution layer + pooling
   // {12,12,32}
-  auto l4 = Convolution2D(l3, {5, 5}, 32);
-  auto l5 = MaxPooling(l4);
-  auto l6 = Relu(l5);
+  //auto l4 = Convolution2D(l3, {1, 1}, 32);
+  //auto l5 = MaxPooling(l4);
+  //auto l6 = Relu(l5);
   // {4,4,64}
   // {4,4,64}
   //auto linear = Linear(l6, 128);
@@ -103,15 +103,15 @@ TEST(MNIST, CNN) {
 
   // # Readout layer
   // {128}
-  auto l9 = Linear(l6, 10);
+  auto l9 = Linear(l3, 10);
   auto output = Softmax(l9);
   //// {10}
 
-  training_set.resize(100);
-  Optimizer optimizer(output, 100, training_set);
+  training_set.resize(1000);
+  Optimizer optimizer(output, 10, training_set);
   // Optimizer tester(output, 10, testing_set);
 
-  float lambda = 1.0f;
+  float lambda = 0.1f;
   for (int i = 1;; ++i) {
     optimizer.Train(lambda, training_set.size());
 
@@ -130,9 +130,9 @@ TEST(MNIST, CNN) {
     if (i % 2 == 0) {
       // std::ofstream("layer_1.pgm") << image_PGM(l1.params);
       // linear.params.sizes = {28,28,32};
-      std::ofstream("l1_output.pgm") << image_PGM(l1.output);
-      std::ofstream("l1.pgm") << image_PGM(l1.params);
-      std::ofstream("m.pgm") << image_PGM(l2.input_sensitivity);
+      std::ofstream("l1_output.ppm") << image_PPM(l1.output);
+      std::ofstream("l1.ppm") << image_PPM(l1.params);
+      //std::ofstream("m.pgm") << image_PGM(l2.input_sensitivity);
       // std::ofstream("l2_output.pgm") << image_PGM(l4.output);
       // std::ofstream("l2.pgm") << image_PGM(l4.params);
       // std::ofstream("l2_output.pgm") << image_PGM(l2.output);
