@@ -30,7 +30,7 @@ Convolution2D::Convolution2D(Node& node,
   output.producer = this;
 
   params = Tensor::Random(size_params);
-  params *= 1.f / (sizes[0] * sizes[1]);
+  params *= 0.01f / (sizes[0] * sizes[1] * size_input[2]);
 
   input_sensitivity = Tensor(input->sizes);
   params_sensitivity = Tensor(params.sizes);
@@ -42,9 +42,9 @@ void Convolution2D::Forward() {
   for(size_t f = 0; f<size_output[2]; ++f)
   for(size_t y = 0; y<size_output[1]; ++y)
   for(size_t x = 0; x<size_output[0]; ++x) {
-    float v = 0.f;
     size_t params_index = f * size_params[0] * size_params[1] * size_params[2];
     float* p = &params[params_index];
+    float v = 0.f;
     for(size_t dz = 0; dz < size_params[2]; ++dz)
     for(size_t dy = 0; dy < size_params[1]; ++dy)
     for(size_t dx = 0; dx < size_params[0]; ++dx) {
@@ -68,8 +68,7 @@ void Convolution2D::Backward() {
   for(size_t y = 0; y<size_output[1]; ++y)
   for(size_t x = 0; x<size_output[0]; ++x) {
     size_t output_index= x + size_output[0] * ( y  + size_output[1] * ( f ) );
-    float* os = &((*output_sensitivity)[output_index]);
-    const float v = *(os++);
+    const float os =  (*output_sensitivity)[output_index];
     size_t params_index = f * size_params[0] * size_params[1] * size_params[2];
     float* p  = &params[params_index];
     float* ps = &params_sensitivity[params_index];
@@ -80,8 +79,8 @@ void Convolution2D::Backward() {
          x + dx + size_input[0] * (
          y + dy + size_input[1] * (
          0 + dz));
-      input_sensitivity[input_index] += (*p) * v;
-      *ps += (*input)[input_index] * v;
+      input_sensitivity[input_index] += (*p) * os;
+      *ps += (*input)[input_index] * os;
       ++p;
       ++ps;
     }

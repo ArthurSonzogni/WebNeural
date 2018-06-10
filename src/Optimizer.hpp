@@ -17,6 +17,7 @@ class Optimizer {
    Tensor Predict(const Tensor& input);
    float Error();
    float ErrorInteger();
+   float LastError();
 
    std::vector<Example> examples;
    size_t iteration = 0;
@@ -27,6 +28,7 @@ class Optimizer {
     void Forward();
     void Backward();
     std::vector<Node*> nodes;
+    float last_error = 0.f;
 };
 
 #endif /* end of include guard: OPTIMIZER_H */

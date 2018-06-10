@@ -14,7 +14,7 @@ Linear::Linear(Node& node, size_t num_output) {
   params_sensitivity = Tensor(params.sizes);
 
   params.Randomize();
-  params *= (1.0 / input_size);
+  params *= (0.1f / input_size);
 }
 
 void Linear::Forward() {

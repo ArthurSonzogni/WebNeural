@@ -5,6 +5,8 @@
 #include <vector>
 #include "util.hpp"
 
+using std::size_t;
+
 class Node;
 
 struct Tensor {

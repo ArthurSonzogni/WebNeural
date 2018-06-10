@@ -8,13 +8,19 @@ Optimizer::Optimizer(Node& node,
     : examples(examples), batch_size(batch_size) {
   Node* op = &node;
   while (op) {
-    std::cout << __func__ << std::endl;
+    std::cout << "Optimizer";
+    if (op->input) {
+    for(auto& it : op->input->sizes)
+      std::cout << " " << it;
+    }
+    std::cout << std::endl;
     nodes.push_back(op);
     op = op->input ? op->input->producer : nullptr;
   }
 }
 
 void Optimizer::Train(float lambda, size_t iterations) {
+  float sum_error = 0.f;
   for (size_t i = 0; i < iterations; ++i) {
     ++iteration;
     iteration %= examples.size();
@@ -37,7 +43,11 @@ void Optimizer::Train(float lambda, size_t iterations) {
       Update(lambda / batch_size);
       nodes.front()->output_sensitivity = &error;
     }
+
+    sum_error += error.Error();
   }
+
+  last_error = sum_error / iterations;
 }
 
 Tensor Optimizer::Predict(const Tensor& input) {
@@ -88,4 +98,8 @@ void Optimizer::Backward() {
   for (size_t i = 0; i < nodes.size() - 1; ++i) {
     nodes[i]->Backward();
   }
+}
+
+float Optimizer::LastError()  {
+  return last_error;
 }

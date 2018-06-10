@@ -15,6 +15,8 @@ class Node {
   Tensor params_sensitivity;
   Tensor* output_sensitivity = nullptr;
 
+  bool locked = false;
+
   virtual void Forward() = 0;
   virtual void Backward() = 0;
   void Update(float lambda);

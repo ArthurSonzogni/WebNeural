@@ -18,7 +18,10 @@ std::vector<Example> GetExamples(const std::vector<std::vector<float>>& input,
   for (size_t i = 0; i < input.size(); ++i) {
     auto input_example = Tensor({28, 28});
     input_example.values = input[i];
-    input_example *= 1.f / 256.f;
+    for (auto& p : input_example.values) {
+      p /= 256.0f;
+      // p = -1.0 + 2.0*p;
+    }
 
     auto output_example = Tensor({10});
     output_example.Fill(0.f);
@@ -51,8 +54,8 @@ TEST(MNIST, MultiLayerPerceptron) {
 
   for (int i = 0; i < 1000; ++i) {
     float error_training = optimizer.ErrorInteger();
-    //float error_test = tester.ErrorInteger();
-    //std::cout << "Error " << error_training << " " << error_test << std::endl;
+    float error_test = tester.ErrorInteger();
+    std::cout << "Error " << error_training << " " << error_test << std::endl;
 
     if (error_training < 0.03)
       break;
@@ -77,23 +80,21 @@ TEST(MNIST, CNN) {
 
   // # First convolution layer + pooling
   // {28,28,1}
-  auto l1 = Convolution2D(input, {5,5}, 16);
+  auto l1 = Convolution2D(input, {5, 5}, 32);
   auto l2 = MaxPooling(l1);
   auto l3 = Relu(l2);
-  // {12,12,16}
+  // {12,12,32}
 
   // # Second convolution layer + pooling
-  // {12,12,16}
-  auto l4 = Convolution2D(l3, {5, 5}, 32);
+  // {12,12,32}
+  auto l4 = Convolution2D(l3, {5, 5}, 64);
   auto l5 = MaxPooling(l4);
   auto l6 = Relu(l5);
-  // {4,4,32}
-
-  // # Dense layer.
-  // {4,4,32}
+  // {4,4,64}
+  // {4,4,64}
   auto linear = Linear(l6, 128);
-  auto relu = Relu(linear);
-  // {128}
+  auto relu = Sigmoid(linear);
+  // {1024}
 
   // # Dropout layer
   // {128}
@@ -102,40 +103,44 @@ TEST(MNIST, CNN) {
 
   // # Readout layer
   // {128}
-  auto l9 = Linear(relu, 10);
+  auto l9 = Linear(drop, 10);
   auto output = Softmax(l9);
-  // {10}
+  //// {10}
 
-  training_set.resize(training_set.size()/100);
-  testing_set.resize(testing_set.size()/100);
-  Optimizer optimizer(output, 100, training_set);
-  Optimizer tester(output, 100, testing_set);
+  Optimizer optimizer(output, 1000, training_set);
+  // Optimizer tester(output, 10, testing_set);
 
-  float lambda = 0.01f;
+  float lambda = 1.0f;
   for (int i = 1;; ++i) {
-    float error_training = optimizer.Error();
-    //float error_test = tester.Error();
-    float error_test = error_training;
-    for(int i = 0; i<100; ++i) {
+    optimizer.Train(lambda, training_set.size() / 1000);
+
+    float error_training = optimizer.LastError();
+    for (int i = 0; i < 100; ++i) {
       if (i < error_training * 100)
-        std::cout << "O";
+        std::cout << "#";
       else
         std::cout << "-";
     }
-    std::cout << "  Error " << " " << error_training << " " << error_test << " " << std::endl;
+    std::cout << "  Error "
+              << " " << error_training << " " << std::endl;
 
-    if (error_training < 0.1)
-      lambda = 0.1f;
+    // if (optimizer.LastError() < 0.03
 
-    if (i % 1 == 0) {
-      std::ofstream("layer_1.pgm") << image_PGM(l1.params);
-      std::ofstream("layer_1_output.pgm") << image_PGM(l1.output);
-      //std::ofstream("layer_2.pgm") << image_PGM(l4.params);
+    if (i % 2 == 0) {
+      // std::ofstream("layer_1.pgm") << image_PGM(l1.params);
+      // linear.params.sizes = {28,28,32};
+      std::ofstream("l1_output.pgm") << image_PGM(l1.output);
+      std::ofstream("l1.pgm") << image_PGM(l1.params);
+      std::ofstream("m.pgm") << image_PGM(l2.input_sensitivity);
+      // std::ofstream("l2_output.pgm") << image_PGM(l4.output);
+      // std::ofstream("l2.pgm") << image_PGM(l4.params);
+      // std::ofstream("l2_output.pgm") << image_PGM(l2.output);
+      // std::ofstream("l3_output.pgm") << image_PGM(l3.output);
+      ////std::ofstream("l4_output.pgm") << image_PGM(l4.output);
+      ////std::ofstream("layer_2.pgm") << image_PGM(l4.params);
     }
-
-    optimizer.Train(lambda, training_set.size());
   }
 
   EXPECT_LE(optimizer.ErrorInteger(), 0.03);
-  EXPECT_LE(tester.ErrorInteger(), 0.055);
+  // EXPECT_LE(tester.ErrorInteger(), 0.055);
 }
