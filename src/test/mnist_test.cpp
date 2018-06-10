@@ -77,37 +77,45 @@ TEST(MNIST, CNN) {
 
   // # First convolution layer + pooling
   // {28,28,1}
-  auto l1 = Convolution2D(input, {5,5}, 32);
+  auto l1 = Convolution2D(input, {5,5}, 16);
   auto l2 = MaxPooling(l1);
   auto l3 = Relu(l2);
+  // {12,12,16}
 
   // # Second convolution layer + pooling
-  // {12,12,32}
-  auto l4 = Convolution2D(l3, {5, 5}, 64);
+  // {12,12,16}
+  auto l4 = Convolution2D(l3, {5, 5}, 32);
   auto l5 = MaxPooling(l4);
   auto l6 = Relu(l5);
-  // {4,4,64}
+  // {4,4,32}
 
   // # Dense layer.
-  auto linear = Linear(l6, 1024);
+  // {4,4,32}
+  auto linear = Linear(l6, 128);
   auto relu = Relu(linear);
+  // {128}
 
   // # Dropout layer
+  // {128}
   auto drop = Dropout(relu, 0.4);
+  // {128}
 
   // # Readout layer
-  auto l7 = Linear(drop, 10);
-  auto output = Softmax(l7);
+  // {128}
+  auto l9 = Linear(relu, 10);
+  auto output = Softmax(l9);
+  // {10}
 
-  //training_set.resize(training_set.size()/64);
-  //testing_set.resize(testing_set.size()/64);
-  Optimizer optimizer(output, 997, training_set);
-  Optimizer tester(output, 997, testing_set);
+  training_set.resize(training_set.size()/100);
+  testing_set.resize(testing_set.size()/100);
+  Optimizer optimizer(output, 100, training_set);
+  Optimizer tester(output, 100, testing_set);
 
-  float lambda = 10.f;
-  for (int i = 1; i < 1000; ++i) {
-    float error_training = optimizer.ErrorInteger();
-    float error_test = tester.ErrorInteger();
+  float lambda = 0.01f;
+  for (int i = 1;; ++i) {
+    float error_training = optimizer.Error();
+    //float error_test = tester.Error();
+    float error_test = error_training;
     for(int i = 0; i<100; ++i) {
       if (i < error_training * 100)
         std::cout << "O";
@@ -117,10 +125,12 @@ TEST(MNIST, CNN) {
     std::cout << "  Error " << " " << error_training << " " << error_test << " " << std::endl;
 
     if (error_training < 0.1)
-      lambda = 1.0f;
+      lambda = 0.1f;
 
-    if (i % 10 == 0) {
+    if (i % 1 == 0) {
       std::ofstream("layer_1.pgm") << image_PGM(l1.params);
+      std::ofstream("layer_1_output.pgm") << image_PGM(l1.output);
+      //std::ofstream("layer_2.pgm") << image_PGM(l4.params);
     }
 
     optimizer.Train(lambda, training_set.size());

@@ -19,11 +19,6 @@ Convolution2D::Convolution2D(Node& node,
     num_features,
   };
 
-  size_half_params = {
-    (sizes[0]-1)/2,
-    (sizes[1]-1)/2,
-  };
-
   size_output = {
     size_input[0] - size_params[0] + 1,
     size_input[1] - size_params[1] + 1,
@@ -32,6 +27,8 @@ Convolution2D::Convolution2D(Node& node,
   // clang-format on
 
   output = Tensor(size_output);
+  output.producer = this;
+
   params = Tensor::Random(size_params);
   params *= 1.f / (sizes[0] * sizes[1]);
 
@@ -41,21 +38,24 @@ Convolution2D::Convolution2D(Node& node,
 
 void Convolution2D::Forward() {
   // clang-format off
-  float* o = &(output[0]);
-  for(size_t c = 0; c<size_output[2]; ++c)
+  //#pragma omp parallel for
+  for(size_t f = 0; f<size_output[2]; ++f)
   for(size_t y = 0; y<size_output[1]; ++y)
   for(size_t x = 0; x<size_output[0]; ++x) {
     float v = 0.f;
-    float* p = &params[0];
-    for(size_t z = 0; z<size_input[2]; ++z)
-    for(size_t dy = -size_half_params[1]; dy <= +size_half_params[1]; ++dy)
-    for(size_t dx = -size_half_params[0]; dx <= +size_half_params[0]; ++dx) {
-      const size_t input_index = x + dx + size_input[0] * (y + dy + size_input[1] * z);
+    size_t params_index = f * size_params[0] * size_params[1] * size_params[2];
+    float* p = &params[params_index];
+    for(size_t dz = 0; dz < size_params[2]; ++dz)
+    for(size_t dy = 0; dy < size_params[1]; ++dy)
+    for(size_t dx = 0; dx < size_params[0]; ++dx) {
+      const size_t input_index =
+         x + dx + size_input[0] * (
+         y + dy + size_input[1] * (
+         0 + dz));
       v += (*p) * (*input)[input_index];
       ++p;
     }
-    *o = v;
-    ++o;
+    output[x + size_output[0] * ( y + size_output[1] * f)] = v;
   }
   // clang-format on
 }
@@ -63,17 +63,23 @@ void Convolution2D::Forward() {
 void Convolution2D::Backward() {
   input_sensitivity.Fill(0.f);
   // clang-format off
-  float* o = &((*output_sensitivity)[0]);
-  for(size_t c = 0; c<size_output[2]; ++c)
+  //#pragma omp parallel for
+  for(size_t f = 0; f<size_output[2]; ++f)
   for(size_t y = 0; y<size_output[1]; ++y)
   for(size_t x = 0; x<size_output[0]; ++x) {
-    const float v = *(o++);
-    float* p = &params.values[0];
-    float* ps = &params_sensitivity.values[0];
-    for(size_t z = 0; z<size_input[2]; ++z)
-    for(size_t dy = -size_half_params[1]; dy <= +size_half_params[1]; ++dy)
-    for(size_t dx = -size_half_params[0]; dx <= +size_half_params[0]; ++dx) {
-      const size_t input_index = x + dx + size_input[0] * (y + dy + size_input[1] * z);
+    size_t output_index= x + size_output[0] * ( y  + size_output[1] * ( f ) );
+    float* os = &((*output_sensitivity)[output_index]);
+    const float v = *(os++);
+    size_t params_index = f * size_params[0] * size_params[1] * size_params[2];
+    float* p  = &params[params_index];
+    float* ps = &params_sensitivity[params_index];
+    for(size_t dz = 0; dz < size_params[2]; ++dz)
+    for(size_t dy = 0; dy < size_params[1]; ++dy)
+    for(size_t dx = 0; dx < size_params[0]; ++dx) {
+      const size_t input_index =
+         x + dx + size_input[0] * (
+         y + dy + size_input[1] * (
+         0 + dz));
       input_sensitivity[input_index] += (*p) * v;
       *ps += (*input)[input_index] * v;
       ++p;

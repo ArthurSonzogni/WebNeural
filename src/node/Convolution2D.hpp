@@ -11,7 +11,6 @@ class Convolution2D : public Node {
   private:
     std::vector<size_t> size_input;
     std::vector<size_t> size_params;
-    std::vector<size_t> size_half_params;
     std::vector<size_t> size_output;
 };
 
