@@ -1,6 +1,6 @@
 #include "node/Input.hpp"
 #include "node/Linear.hpp"
-#include "Optimizer.hpp"
+#include "Model.hpp"
 #include "gtest/gtest.h"
 
 namespace {
@@ -27,8 +27,8 @@ TEST(Linear, Linear) {
   auto output = Linear(input, 2);
 
   // Optimize it.
-  Optimizer optimizer(output, 100, examples);
-  optimizer.Train(0.4, 2000);
+  Model model(input, output, examples);
+  model.Train(0.001f, 200000);
 
   // Check the tuned params
   Tensor expected_params({8});
@@ -40,7 +40,7 @@ TEST(Linear, Linear) {
   // Check for new predictions.
   for (int i = 0; i < 10; ++i) {
     Tensor input = Tensor::Random({3});
-    Tensor output = optimizer.Predict(input);
+    Tensor output = model.Predict(input);
     EXPECT_LT((output - f(input)).Error(), 1e-4);
   }
 }

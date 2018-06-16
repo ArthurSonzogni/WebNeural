@@ -3,7 +3,7 @@
 #include "node/Linear.hpp"
 #include "node/Softmax.hpp"
 #include "node/Sigmoid.hpp"
-#include "Optimizer.hpp"
+#include "Model.hpp"
 #include "gtest/gtest.h"
 
 namespace {
@@ -36,16 +36,16 @@ TEST(Softmax, Softmax) {
   auto d = Softmax(c);
   auto& output = d;
 
-  Optimizer optimizer(output, 100, examples);
+  Model model(input, output, examples);
 
   for (int i = 0; i<1000; ++i) {
-    optimizer.Train(3.f, 10000);
+    model.Train(0.01f, 10000);
 
     // Check for new predictions.
-    float error = optimizer.Error();
+    float error = model.Error();
     if (error < 0.05)
       break;
     std::cout << "error = " << error << std::endl;
   }
-  EXPECT_LE(optimizer.Error(), 0.05);
+  EXPECT_LE(model.Error(), 0.05);
 }

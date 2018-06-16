@@ -10,7 +10,6 @@ MaxPooling::MaxPooling(Node& node) {
     input->sizes[1]/2,
     input->sizes[2],
   });
-  output.producer = this;
   // clang-format on
 
   input_sensitivity = Tensor(input->sizes);

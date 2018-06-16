@@ -9,7 +9,6 @@ Linear::Linear(Node& node, size_t num_output) {
 
   params = Tensor((input_size + 1) * output_size);
   output = Tensor(output_size);
-  output.producer = this;
 
   input_sensitivity = Tensor(input->sizes);
   params_sensitivity = Tensor(params.sizes);
@@ -19,7 +18,7 @@ Linear::Linear(Node& node, size_t num_output) {
 }
 
 void Linear::Forward() {
-  //#pragma omp parallel for
+  #pragma omp parallel for
   for (size_t o = 0; o < output_size; ++o) {
     size_t p = o * (input_size + 1);
     float v = 0.f;

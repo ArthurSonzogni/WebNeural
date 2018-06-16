@@ -8,7 +8,10 @@ std::string image_PGM(const Tensor& tensor) {
     v_min = std::min(v_min, it);
     v_max = std::max(v_max, it);
   }
+  return image_PGM(tensor, v_min, v_max);
+}
 
+std::string image_PGM(const Tensor& tensor, float v_min, float v_max) {
   size_t width = tensor.sizes[0];
   size_t height = tensor.sizes[1];
   size_t num_images = tensor.values.size() / (width * height);

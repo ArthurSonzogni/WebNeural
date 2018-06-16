@@ -5,7 +5,6 @@ Sigmoid::Sigmoid(Node& node) {
   Link(node);
 
   output = Tensor(input->sizes);
-  output.producer = this;
   input_sensitivity = Tensor(input->sizes);
 }
 

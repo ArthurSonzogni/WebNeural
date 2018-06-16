@@ -28,7 +28,6 @@ Convolution2D::Convolution2D(Node& node,
   // clang-format on
 
   output = Tensor(size_output);
-  output.producer = this;
 
   params = Tensor::Random(size_params);
   params *= 1.0f / sqrt(sizes[0] * sizes[1] * size_input[2]);

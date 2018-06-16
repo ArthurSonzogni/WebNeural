@@ -4,10 +4,7 @@ Dropout::Dropout(Node& node, float ratio) : ratio(ratio) {
   Link(node);
 
   output = Tensor(input->sizes);
-  output.producer = this;
-
   random = Tensor(input->sizes);
-
   input_sensitivity = Tensor(input->sizes);
 }
 

@@ -1,7 +1,7 @@
 #include <cmath>
 #include "node/Input.hpp"
 #include "node/Convolution2D.hpp"
-#include "Optimizer.hpp"
+#include "Model.hpp"
 #include "gtest/gtest.h"
 #include "Image.hpp"
 #include <fstream>
@@ -36,7 +36,7 @@ Tensor multi_derivatives(Tensor& input) {
 TEST(Convolution2D, Convolution2D) {
   // Generate examples.
   std::vector<Example> examples;
-  for (int i = 0; i < 10000; ++i) {
+  for (int i = 0; i < 1000; ++i) {
     Tensor input = Tensor::Random({30,30});
     examples.push_back({input, multi_derivatives(input)});
   }
@@ -45,18 +45,20 @@ TEST(Convolution2D, Convolution2D) {
   Input input({30,30});
   auto output = Convolution2D(input, {3,3}, 8);
 
-  Optimizer optimizer(output, 100, examples);
+  Model model(input, output, examples);
 
   for (int i = 0; i < 1000; ++i) {
-    optimizer.Train(0.001f, 100);
+    model.batch_size = 100;
+    model.Train(0.000001f, 1000);
 
     // Check for new predictions.
-    float error = optimizer.Error();
-    if (error < 0.0001)
+    float error = model.Error();
+    std::cout << "error = " << error << std::endl;
+    if (error < 0.0005)
       break;
   }
 
-  EXPECT_LE(optimizer.Error(), 0.03);
+  EXPECT_LE(model.Error(), 0.0005);
   Tensor expected_params({3,3,8});
   expected_params.values = {
       // ------------------+
@@ -93,5 +95,5 @@ TEST(Convolution2D, Convolution2D) {
       +0.f, +0.f, +0.f,  // |
   };
 
-  EXPECT_LE((expected_params - output.params).Error(), 1e-8);
+  EXPECT_LE((expected_params - output.params).Error(), 0.04);
 }

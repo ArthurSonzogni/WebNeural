@@ -4,7 +4,6 @@ Bias::Bias(Node& node) {
   Link(node);
 
   output = Tensor(input->sizes);
-  output.producer = this;
   
   params = Tensor::Random(input->sizes);
   params_sensitivity = Tensor(input->sizes);
