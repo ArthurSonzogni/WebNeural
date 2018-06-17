@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <sstream>
 
 Model::Model(Node& input, Node& output, const std::vector<Example>& examples)
     : input(input), output(output), examples(examples) {
@@ -90,4 +91,21 @@ float Model::ErrorInteger() {
 
 float Model::LastError() {
   return last_error;
+}
+
+std::string Model::SerializeParams() {
+  std::stringstream ss;
+  Range(input, output).Apply([&ss](Node& node) {
+    for (auto& p : node.params.values)
+      ss << p << ' ';
+  });
+  return ss.str();
+}
+
+void Model::DeserializeParams(const std::string& value) {
+  std::stringstream ss(value);
+  Range(input, output).Apply([&ss](Node& node) {
+    for (auto& p : node.params.values)
+      ss >> p;
+  });
 }

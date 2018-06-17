@@ -61,6 +61,7 @@ add_new_test(unit_tests
   node/LinearTest.cpp
   node/ReluTest.cpp
   node/SoftmaxTest.cpp
+  ModelTest.cpp
 )
 
 add_new_test(mnist_tests 

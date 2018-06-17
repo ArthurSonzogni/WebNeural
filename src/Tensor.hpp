@@ -12,7 +12,6 @@ class Node;
 struct Tensor {
   std::vector<float> values;
   std::vector<size_t> sizes;
-  Node* producer = nullptr;
 
   Tensor();
   Tensor(size_t size);
@@ -33,6 +32,8 @@ struct Tensor {
   void operator+=(Tensor other);
   float& operator[](size_t i) { return values[i]; }
   Tensor operator-(const Tensor& tensor) const;
+  bool operator==(const Tensor& other) const;
+  bool operator!=(const Tensor& other) const;
 };
 
 #endif /* end of include guard: TENSOR_H */

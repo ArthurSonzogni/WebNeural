@@ -32,6 +32,14 @@ void Tensor::operator+=(Tensor other) {
   }
 }
 
+bool Tensor::operator==(const Tensor& other) const {
+  return sizes == other.sizes && values == other.values;
+}
+
+bool Tensor::operator!=(const Tensor& other) const {
+  return !(*this == other);
+}
+
 float Tensor::Error() {
   float ret = 0.f;
   for (const auto i : values) {

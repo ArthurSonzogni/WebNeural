@@ -19,6 +19,10 @@ class Model {
   float ErrorInteger();
   float LastError();
 
+  // Save/Load model weights.
+  std::string SerializeParams();
+  void DeserializeParams(const std::string& value);
+
   Node& input;
   Node& output;
   std::vector<Example> examples;
