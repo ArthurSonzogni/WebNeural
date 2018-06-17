@@ -9,6 +9,8 @@ add_library(main
   Tensor.hpp
   node/Bias.cpp
   node/Bias.hpp
+  node/BilinearUpsampling.cpp
+  node/BilinearUpsampling.hpp
   node/Convolution2D.cpp
   node/Convolution2D.hpp
   node/Dropout.cpp

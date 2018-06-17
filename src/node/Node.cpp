@@ -2,10 +2,10 @@
 #include <algorithm>
 #include <cmath>
 
-static constexpr float RMS_decay = 0.9f;
+static constexpr float RMS_decay = 0.95f;
 static constexpr float RMS_epsilon = 1e-8f;
 static constexpr float Momentum_decay = 0.9f;
-static constexpr float Momentum_power = 0.1f;
+static constexpr float Momentum_power = 0.2f;
 
 void Node::Update(float lambda) {
   InitIfNeeded();

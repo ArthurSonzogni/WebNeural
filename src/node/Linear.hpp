@@ -5,7 +5,7 @@
 
 class Linear : public Node {
   public:
-    Linear(Node& node, size_t num_output);
+    Linear(Node& node, std::vector<size_t> output_sizes);
     void Forward() override;
     void Backward() override;
   private:

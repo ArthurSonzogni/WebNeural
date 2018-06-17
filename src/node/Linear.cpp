@@ -1,14 +1,14 @@
 #include "node/Linear.hpp"
 #include <cmath>
 
-Linear::Linear(Node& node, size_t num_output) {
+Linear::Linear(Node& node, std::vector<size_t> output_sizes) {
   Link(node);
 
   input_size = input->values.size();
-  output_size = num_output;
+  output_size = Multiply(output_sizes);
 
   params = Tensor((input_size + 1) * output_size);
-  output = Tensor(output_size);
+  output = Tensor(output_sizes);
 
   input_sensitivity = Tensor(input->sizes);
   params_sensitivity = Tensor(params.sizes);
@@ -18,7 +18,7 @@ Linear::Linear(Node& node, size_t num_output) {
 }
 
 void Linear::Forward() {
-  #pragma omp parallel for
+  //#pragma omp parallel for
   for (size_t o = 0; o < output_size; ++o) {
     size_t p = o * (input_size + 1);
     float v = 0.f;

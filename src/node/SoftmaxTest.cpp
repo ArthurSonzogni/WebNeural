@@ -9,7 +9,7 @@
 namespace {
 
 Tensor xor_function(Tensor& input) {
-  Tensor ret({2});
+  Tensor ret({2,1,1});
   if ((input[0] > 0.0) == (input[1] > 0.0))
     ret[0] = 1.0;
   else
@@ -30,9 +30,9 @@ TEST(Softmax, Softmax) {
 
   // Build a neural network.
   Input input({2});
-  auto a = Linear(input, 4);
+  auto a = Linear(input, {4});
   auto b = Sigmoid(a);
-  auto c = Linear(b, 2);
+  auto c = Linear(b, {2});
   auto d = Softmax(c);
   auto& output = d;
 
