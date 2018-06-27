@@ -3,10 +3,13 @@
 #include <iostream>
 #include <algorithm>
 #include <sstream>
+#include <fstream>
 
 Model::Model(Node& input, Node& output, const std::vector<Example>& examples)
     : input(input), output(output), examples(examples) {
 }
+
+Model::Model(Node& input, Node& output) : Model(input, output, {}) {}
 
 void Model::Train(float lambda, size_t iterations) {
   float sum_error = 0.f;
@@ -93,19 +96,39 @@ float Model::LastError() {
   return last_error;
 }
 
-std::string Model::SerializeParams() {
-  std::stringstream ss;
-  Range(input, output).Apply([&ss](Node& node) {
+std::vector<float> Model::SerializeParams() {
+  std::vector<float> ret;
+  Range(input, output).Apply([&ret](Node& node) {
     for (auto& p : node.params.values)
-      ss << p << ' ';
+      ret.push_back(p);
   });
-  return ss.str();
+  return ret;
 }
 
-void Model::DeserializeParams(const std::string& value) {
-  std::stringstream ss(value);
-  Range(input, output).Apply([&ss](Node& node) {
+void Model::DeserializeParams(const std::vector<float>& value) {
+  size_t i = 0;
+  Range(input, output).Apply([&value,&i](Node& node) {
     for (auto& p : node.params.values)
-      ss >> p;
+      p = value[i++];
   });
+}
+static std::ifstream::pos_type FileSize(const std::string& filename) {
+  return std::ifstream(filename, std::ifstream::ate | std::ifstream::binary)
+      .tellg();
+}
+
+void Model::SerializeParamsToFile(const std::string& filename) {
+  std::ofstream file(filename, std::ios::binary);
+  auto data = SerializeParams();
+  file.write((const char*)(&data[0]), data.size() * sizeof(float));
+}
+
+void Model::DeserializeParamsFromFile(const std::string& filename) {
+  auto file_size = FileSize(filename);
+  if (file_size > 0) {
+    std::ifstream file(filename, std::ios::binary);
+    std::vector<float> data(file_size / sizeof(float));
+    file.read((char*)(&data[0]), file_size);
+    DeserializeParams(data);
+  }
 }

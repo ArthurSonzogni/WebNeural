@@ -1,5 +1,6 @@
 #include "Image.hpp"
 #include "sstream"
+#include <cmath>
 
 std::string image_PGM(const Tensor& tensor) {
   float v_min = tensor.values[0];

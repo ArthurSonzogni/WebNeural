@@ -11,6 +11,7 @@ struct Example {
 class Model {
  public:
   Model(Node& input, Node& output, const std::vector<Example>& examples);
+  Model(Node& input, Node& output);
 
   void Train(float lambda, size_t iteration);
   float OptimizeInput(const Tensor& output_target, float lambda);
@@ -20,8 +21,10 @@ class Model {
   float LastError();
 
   // Save/Load model weights.
-  std::string SerializeParams();
-  void DeserializeParams(const std::string& value);
+  std::vector<float> SerializeParams();
+  void DeserializeParams(const std::vector<float>& value);
+  void SerializeParamsToFile(const std::string& filename);
+  void DeserializeParamsFromFile(const std::string& filename);
 
   Node& input;
   Node& output;

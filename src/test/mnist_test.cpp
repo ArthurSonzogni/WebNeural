@@ -82,20 +82,20 @@ TEST(MNIST, CNN) {
 
   // # First convolution layer + pooling
   // {28,28,1}
-  auto l1 = Convolution2D(input, {5, 5}, 10);
-  auto l2 = MaxPooling(l1);
-  auto l3 = Relu(l2);
+  auto l1 = Convolution2D(input, {5, 5}, 10, 2);
+  //auto l2 = MaxPooling(l1);
+  auto l3 = Relu(l1);
   // {10,10,16}
 
   // # Second convolution layer + pooling
   // {10,10,16}
-  auto l4 = Convolution2D(l3, {5, 5}, 10);
-  auto l5 = MaxPooling(l4);
-  auto l6 = Relu(l5);
+  auto l4 = Convolution2D(l3, {5, 5}, 16, 2);
+  //auto l5 = MaxPooling(l4);
+  auto l6 = Relu(l4);
   // {3,3,32}
 
   // {3,3,32}
-  auto linear = Linear(l3, {1024});
+  auto linear = Linear(l3, {512});
   auto relu = Relu(linear);
   // {1024}
 
@@ -118,7 +118,7 @@ TEST(MNIST, CNN) {
   float last_error = 1.0;
   for (int i = 1;; ++i) {
     model.batch_size = 97 + last_error;
-    model.Train(lambda, 100);
+    model.Train(lambda, 200);
 
     float error_training = model.LastError();
     last_error = last_error * 0.95f + error_training * 0.05f;
@@ -140,9 +140,9 @@ TEST(MNIST, CNN) {
     std::ofstream("l1_output.pgm") << image_PGM(l1.output);
     std::ofstream("l3_output.ppm") << image_PPM(l3.output);
     std::ofstream("l3_output.pgm") << image_PGM(l3.output);
-    //std::ofstream("l4.ppm") << image_PPM(l1.params);
+    std::ofstream("l4.ppm") << image_PPM(l1.params);
 
-    if (last_error < 0.01)
+    if (last_error < 0.2)
       break;
   }
 
@@ -160,23 +160,31 @@ TEST(MNIST, GAN) {
       GetExamples(mnist.test_images, mnist.test_labels);
 
   // Generative network.
-  auto g_i = Input({100});
-  auto g_2 = Linear(g_i, {256});
+  auto g_i = Input({1});
+  auto g_2 = Linear(g_i, {128});
   auto g_3 = Relu(g_2);
-  auto g_4 = Linear(g_3, {512});
+  auto g_4 = Linear(g_3, {256});
   auto g_5 = Relu(g_4);
   auto g_6 = Linear(g_5, {784});
   auto g_o = Sigmoid(g_6);
   g_o.output.sizes = {28, 28};
 
+  {
+    Model(g_i, g_o).DeserializeParamsFromFile("generative_net");
+  }
+
   // Build a descriminative network.
   auto d_i = Input({28, 28});
-  auto d_2 = Linear(d_i, {512});
+  auto d_2 = Linear(d_i, {256});
   auto d_3 = Relu(d_2);
-  auto d_4 = Linear(d_3, {128});
+  auto d_4 = Linear(d_3, {64});
   auto d_5 = Relu(d_4);
   auto d_6 = Linear(d_5, {1});
   auto d_o = Sigmoid(d_6);
+
+  {
+    Model(d_i, d_o).DeserializeParamsFromFile("discriminative_net");
+  }
 
   std::random_device seed;
   std::mt19937 random_generator(seed());
@@ -198,7 +206,7 @@ TEST(MNIST, GAN) {
 
       // Generate some examples.
       std::vector<Example> examples;
-      for(size_t i = 0; i<2000; ++i) {
+      for(size_t i = 0; i<training_set.size(); ++i) {
         auto input = Tensor::Random(d_i.params.sizes);
         auto output = Tensor({1,1,1});
         output.values = {1.f};
@@ -218,7 +226,9 @@ TEST(MNIST, GAN) {
         }
         generative_error = error /= examples.size();
         std::cerr << "generative_error = " << generative_error << std::endl;
-      } while (generative_error > 0.1);
+      } while (generative_error > 0.2);
+
+      Model(g_i, g_o).SerializeParamsToFile("generative_net");
     }
 
     // Print a generated image
@@ -262,7 +272,8 @@ TEST(MNIST, GAN) {
         discriminative_error = model.LastError();
         std::cerr << "discriminative_error = " << discriminative_error
                   << std::endl;
-      } while(discriminative_error > 0.2);
+      } while(discriminative_error > 0.01);
+      Model(d_i, d_o).SerializeParamsToFile("discriminative_net");
     }
 
     std::cout << "error = " << generative_error << " vs " << discriminative_error << std::endl;
@@ -278,7 +289,7 @@ TEST(MNIST, CGAN) {
       GetExamples(mnist.test_images, mnist.test_labels);
 
   // Generative network.
-  auto g_i = Input({10, 10});
+  auto g_i = Input({20, 20});
   auto g_1 = Linear(g_i, {9, 9, 32});        // -> {9 , 9 , 32}
   auto g_2 = Relu(g_1);                      // -> {9 , 9 , 32}
   auto g_3 = BilinearUpsampling(g_2);        // -> {20, 20, 32}
@@ -288,6 +299,10 @@ TEST(MNIST, CGAN) {
   auto g_7 = Convolution2D(g_6, {7, 7}, 1);  // -> {28, 28, 1 }
   auto g_o = Sigmoid(g_7);
   g_o.output.sizes = {28, 28};
+
+  {
+    //Model(g_i, g_o).DeserializeParamsFromFile("generative_conv_net");
+  }
 
   // Build a descriminative network.
   auto d_i = Input({28, 28});
@@ -301,6 +316,10 @@ TEST(MNIST, CGAN) {
   auto d_9 = Relu(d_8);
   auto d_10 = Linear(d_9, {1});
   auto d_o = Sigmoid(d_10);
+
+  {
+    //Model(g_i, g_o).DeserializeParamsFromFile("discriminative_conv_net");
+  }
 
   std::random_device seed;
   std::mt19937 random_generator(seed());
@@ -322,7 +341,7 @@ TEST(MNIST, CGAN) {
 
       // Generate some examples.
       std::vector<Example> examples;
-      for(size_t i = 0; i<500; ++i) {
+      for(size_t i = 0; i<2000; ++i) {
         auto input = Tensor::Random(d_i.params.sizes);
         auto output = Tensor({1,1,1});
         output.values = {1.f};
@@ -336,7 +355,7 @@ TEST(MNIST, CGAN) {
         generated.clear();
         float error = 0.f;
         for (size_t i = 0; i < examples.size(); ++i) {
-          model.Train(0.01f, 1);
+          model.Train(0.00001f, 1);
           generated.push_back(g_o.output);
           error += model.LastError();
         }
@@ -344,6 +363,9 @@ TEST(MNIST, CGAN) {
         std::cerr << "generative_error = " << generative_error << std::endl;
         std::ofstream("other.pgm") << image_PGM(generated[0], 0.f, 1.f);
       } while (generative_error > 0.23f && iteration != 0);
+
+      std::ofstream("generative_net") << Model(g_i, g_o).SerializeParams();
+      Model(g_i, g_o).SerializeParamsToFile("generative_conv_net");
     }
 
     // Print a generated image
@@ -388,6 +410,7 @@ TEST(MNIST, CGAN) {
         std::cerr << "discriminative_error = " << discriminative_error
                   << std::endl;
       } while(discriminative_error > 0.1f);
+      Model(d_i, d_o).SerializeParamsToFile("discriminative_conv_net");
     }
 
     std::cout << "error = " << generative_error << " vs " << discriminative_error << std::endl;

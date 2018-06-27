@@ -3,7 +3,9 @@
 
 Convolution2D::Convolution2D(Node& node,
                              const std::vector<size_t> sizes,
-                             size_t num_features) {
+                             size_t num_features,
+                             size_t stride)
+    : stride(stride) {
   Link(node);
 
   // clang-format off
@@ -21,8 +23,8 @@ Convolution2D::Convolution2D(Node& node,
   };
 
   size_output = {
-    size_input[0] - size_params[0] + 1,
-    size_input[1] - size_params[1] + 1,
+    (size_input[0] - size_params[0]) / stride + 1,
+    (size_input[1] - size_params[1]) / stride + 1,
     num_features,
   };
   // clang-format on
@@ -49,8 +51,8 @@ void Convolution2D::Forward() {
     for(size_t dy = 0; dy < size_params[1]; ++dy)
     for(size_t dx = 0; dx < size_params[0]; ++dx) {
       const size_t input_index =
-         x + dx + size_input[0] * (
-         y + dy + size_input[1] * (
+         stride * x + dx + size_input[0] * (
+         stride * y + dy + size_input[1] * (
          0 + dz));
       v += (*p) * (*input)[input_index];
       ++p;
@@ -76,8 +78,8 @@ void Convolution2D::Backward() {
     for(size_t dy = 0; dy < size_params[1]; ++dy)
     for(size_t dx = 0; dx < size_params[0]; ++dx) {
       const size_t input_index =
-         x + dx + size_input[0] * (
-         y + dy + size_input[1] * (
+         stride * x + dx + size_input[0] * (
+         stride * y + dy + size_input[1] * (
          0 + dz));
       input_sensitivity[input_index] += (*p) * os;
       *ps += (*input)[input_index] * os;

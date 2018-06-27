@@ -13,6 +13,8 @@ add_library(main
   node/BilinearUpsampling.hpp
   node/Convolution2D.cpp
   node/Convolution2D.hpp
+  node/Deconvolution2D.cpp
+  node/Deconvolution2D.hpp
   node/Dropout.cpp
   node/Dropout.hpp
   node/Input.cpp
@@ -37,6 +39,10 @@ add_library(main
 # │ Test                                            │
 # └─────────────────────────────────────────────────┘
 
+set(BuildTest, NOT Web)
+
+if (BuildTest)
+
 # Note: For gtest, please follow:
 # https://stackoverflow.com/questions/24295876/cmake-cannot-find-a-googletest-required-library
 find_package(GTest REQUIRED)
@@ -58,6 +64,7 @@ endfunction(add_new_test)
 
 add_new_test(unit_tests
   node/Convolution2DTest.cpp
+  node/Deconvolution2DTest.cpp
   node/LinearTest.cpp
   node/ReluTest.cpp
   node/SoftmaxTest.cpp
@@ -67,3 +74,7 @@ add_new_test(unit_tests
 add_new_test(mnist_tests 
   test/mnist_test.cpp
 )
+
+endif(BuildTest)
+
+add_subdirectory(http)

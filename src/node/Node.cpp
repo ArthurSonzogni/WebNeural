@@ -5,7 +5,7 @@
 static constexpr float RMS_decay = 0.95f;
 static constexpr float RMS_epsilon = 1e-8f;
 static constexpr float Momentum_decay = 0.9f;
-static constexpr float Momentum_power = 0.2f;
+static constexpr float Momentum_power = 0.1f;
 
 void Node::Update(float lambda) {
   InitIfNeeded();
@@ -47,17 +47,17 @@ void Node::InitIfNeeded() {
   if (initiated)
     return;
   initiated = true;
-  Clear();
-}
-
-void Node::Clear() {
   momentum = Tensor(params.sizes);
   momentum.Fill(0.f);
   smoothed_squared_gradient = Tensor(params.sizes);
   smoothed_squared_gradient.Fill(1.f);
 }
 
-void Clear();
+void Node::Clear() {
+  params_sensitivity.Fill(0.f);
+  momentum.Fill(0.f);
+  smoothed_squared_gradient.Fill(1.f);
+}
 
 void Range::Apply(const std::function<void(Node&)>& fun) {
   Node* node = &first;
