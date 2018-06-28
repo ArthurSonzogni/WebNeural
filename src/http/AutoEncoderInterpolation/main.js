@@ -156,6 +156,7 @@ Module.onRuntimeInitialized = function() {
   latent = CreateInputArray(10);
 
   TrainJS();
+  document.querySelector("#loading").className = "disabled";
 }
 
 function TrainJS() {
