@@ -39,9 +39,9 @@ add_library(main
 # │ Test                                            │
 # └─────────────────────────────────────────────────┘
 
-set(BuildTest, NOT Web)
-
-if (BuildTest)
+#set(BuildTest, NOT Web)
+#set(BuildTest, true)
+#if (BuildTest)
 
 # Note: For gtest, please follow:
 # https://stackoverflow.com/questions/24295876/cmake-cannot-find-a-googletest-required-library
@@ -75,6 +75,6 @@ add_new_test(mnist_tests
   test/mnist_test.cpp
 )
 
-endif(BuildTest)
+#endif(BuildTest)
 
 add_subdirectory(http)

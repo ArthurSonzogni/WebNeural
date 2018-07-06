@@ -12,7 +12,7 @@ TEST(Model, Serialize) {
 
   Model model(input, output, {});
 
-  std::string serialized_params = model.SerializeParams();
+  auto serialized_params = model.SerializeParams();
 
   Tensor old_linear_params = linear.params;
   linear.params.Fill(0.f);

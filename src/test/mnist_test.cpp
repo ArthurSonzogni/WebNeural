@@ -13,6 +13,7 @@
 #include "node/Sigmoid.hpp"
 #include "node/Softmax.hpp"
 #include "node/Dropout.hpp"
+#include "node/Deconvolution2D.hpp"
 #include "Image.hpp"
 
 std::vector<Example> GetExamples(const std::vector<std::vector<float>>& input,
@@ -31,6 +32,23 @@ std::vector<Example> GetExamples(const std::vector<std::vector<float>>& input,
     output_example.values[output[i]] = 1.f;
 
     examples.push_back({input_example, output_example});
+  }
+
+  return examples;
+}
+
+std::vector<Example> GetExamples2(const std::vector<std::vector<float>>& input,
+                                 const std::vector<uint8_t>& output) {
+  std::vector<Example> examples;
+  for (size_t i = 0; i < input.size(); ++i) {
+    auto input_example = Tensor({27, 27, 1});
+    for(size_t y = 0; y<27; ++y)
+    for(size_t x = 0; x<27; ++x) {
+      size_t index = x + 28 *y;
+      input_example.at(x,y) = input[i][index] / 255.0f;
+    }
+
+    examples.push_back({input_example, input_example});
   }
 
   return examples;
@@ -162,9 +180,9 @@ TEST(MNIST, GAN) {
   // Generative network.
   auto g_i = Input({1});
   auto g_2 = Linear(g_i, {128});
-  auto g_3 = Relu(g_2);
+  auto g_3 = Sigmoid(g_2);
   auto g_4 = Linear(g_3, {256});
-  auto g_5 = Relu(g_4);
+  auto g_5 = Sigmoid(g_4);
   auto g_6 = Linear(g_5, {784});
   auto g_o = Sigmoid(g_6);
   g_o.output.sizes = {28, 28};
@@ -284,45 +302,40 @@ TEST(MNIST, CGAN) {
   auto mnist = mnist::read_dataset<std::vector, std::vector, float, uint8_t>(
       MNIST_DATA_LOCATION);
   std::vector<Example> training_set =
-      GetExamples(mnist.training_images, mnist.training_labels);
+      GetExamples2(mnist.training_images, mnist.training_labels);
   std::vector<Example> testing_set =
-      GetExamples(mnist.test_images, mnist.test_labels);
+      GetExamples2(mnist.test_images, mnist.test_labels);
 
   // Generative network.
-  auto g_i = Input({20, 20});
-  auto g_1 = Linear(g_i, {9, 9, 32});        // -> {9 , 9 , 32}
-  auto g_2 = Relu(g_1);                      // -> {9 , 9 , 32}
-  auto g_3 = BilinearUpsampling(g_2);        // -> {20, 20, 32}
-  auto g_4 = Convolution2D(g_3, {5, 5}, 16); // -> {16, 16, 16}
-  auto g_5 = Relu(g_4);                      // -> {16, 16, 16}
-  auto g_6 = BilinearUpsampling(g_5);        // -> {34, 34, 16}
-  auto g_7 = Convolution2D(g_6, {7, 7}, 1);  // -> {28, 28, 1 }
+  auto g_i = Input({10});
+  auto g_1 = Linear(g_i, {40});
+  auto g_2 = Sigmoid(g_1);
+  auto g_3 = Linear(g_2, {10,10,32});
+  auto g_4 = Relu(g_3);
+  auto g_5 = Deconvolution2D(g_4, {3, 3}, 32, 2);
+  auto g_6 = Sigmoid(g_5);
+  auto g_7 = Deconvolution2D(g_6, {7, 7}, 1, 1);
   auto g_o = Sigmoid(g_7);
-  g_o.output.sizes = {28, 28};
+  g_o.output.sizes = {27, 27};
 
-  {
-    //Model(g_i, g_o).DeserializeParamsFromFile("generative_conv_net");
-  }
 
   // Build a descriminative network.
-  auto d_i = Input({28, 28});
-  auto d_2 = Convolution2D(d_i, {5,5}, 8); // -> {24,24,8}
-  auto d_3 = MaxPooling(d_2);              // -> {12,12,8}
-  auto d_4 = Relu(d_3);
-  auto d_5 = Convolution2D(d_4, {5,5}, 8); // -> {8,8,16}
-  auto d_6 = MaxPooling(d_5);              // -> {4,4,16}
-  auto d_7 = Relu(d_6);
-  auto d_8 = Linear(d_7, {128});
-  auto d_9 = Relu(d_8);
-  auto d_10 = Linear(d_9, {1});
-  auto d_o = Sigmoid(d_10);
+  auto d_i = Input({27, 27});
+  auto d_2 = Convolution2D(d_i, {7,7}, 32, 1); // 27-7+1 = 21
+  auto d_3 = Sigmoid(d_2);
+  auto d_4 = Convolution2D(d_3, {3,3}, 32, 2); // (21-3)/2+1=10
+  auto d_5 = Relu(d_4);
+  auto d_6 = Linear(d_5, {40});
+  auto d_7 = Sigmoid (d_6);
+  auto d_8 = Linear(d_7, {1});
+  auto d_o = Sigmoid (d_8);
 
-  {
-    //Model(g_i, g_o).DeserializeParamsFromFile("discriminative_conv_net");
-  }
+  bool is_discriminative_network_loaded = false;
 
   std::random_device seed;
   std::mt19937 random_generator(seed());
+  std::uniform_real_distribution<float> fake_value(0.1f, 0.5f);
+  std::uniform_real_distribution<float> real_value(0.5f, 0.9f);
 
   for(size_t iteration = 0; iteration < 1000; ++iteration) {
 
@@ -339,33 +352,42 @@ TEST(MNIST, CGAN) {
       Range(d_i, d_o).Apply(&Node::Lock);
       Range(g_i, d_o).Apply(&Node::Clear);
 
+      if (!is_discriminative_network_loaded) {
+        is_discriminative_network_loaded = true;
+        Model(g_i, d_o).DeserializeParamsFromFile("network");
+      } else {
+        //Model(g_i, d_o).DeserializeParamsFromFile("network");
+        Model(g_i, d_o).SerializeParamsToFile("network");
+      }
+
       // Generate some examples.
       std::vector<Example> examples;
-      for(size_t i = 0; i<2000; ++i) {
+      for(size_t i = 0; i<1000; ++i) {
         auto input = Tensor::Random(d_i.params.sizes);
         auto output = Tensor({1,1,1});
-        output.values = {1.f};
+        output.values = {real_value(seed)};
         examples.push_back({input, output});
       }
 
       // Train the network.
       auto model = Model(g_i, d_o, examples);
-      model.batch_size = 100;
+      model.batch_size = 23;
+      model.Train(0.f, 20);
       do {
         generated.clear();
         float error = 0.f;
         for (size_t i = 0; i < examples.size(); ++i) {
-          model.Train(0.00001f, 1);
+          model.Train(0.01, 1);
           generated.push_back(g_o.output);
           error += model.LastError();
         }
         generative_error = error /= examples.size();
         std::cerr << "generative_error = " << generative_error << std::endl;
         std::ofstream("other.pgm") << image_PGM(generated[0], 0.f, 1.f);
-      } while (generative_error > 0.23f && iteration != 0);
+      } while (generative_error > 0.5f && iteration != 0);
+      //} while (false);
 
-      std::ofstream("generative_net") << Model(g_i, g_o).SerializeParams();
-      Model(g_i, g_o).SerializeParamsToFile("generative_conv_net");
+      //Model(g_i, g_o).SerializeParamsToFile("generative_conv_net");
     }
 
     // Print a generated image
@@ -389,28 +411,28 @@ TEST(MNIST, CGAN) {
       std::vector<Example> examples;
       for (auto& input : generated) {
         auto output = Tensor({1,1,1});
-        output.values = {0.f};
+        output.values = {fake_value(seed)};
         examples.push_back({input, output});
       }
       std::uniform_int_distribution<> random_index(0, training_set.size() - 1);
       for (size_t i = 0; i < generated.size(); ++i) {
         auto input = training_set[random_index(random_generator)].input;
         auto output = Tensor({1,1,1});
-        output.values = {1.f};
+        output.values = {real_value(seed)};
         examples.push_back({input, output});
       }
       std::shuffle(examples.begin(), examples.end(), random_generator);
 
       // Train the network.
       auto model = Model(d_i, d_o, examples);
-      model.batch_size = 27;
+      model.batch_size = 23;
+      model.Train(0.f, 20);
       do {
-        model.Train(0.00005f, examples.size());
+        model.Train(0.01, examples.size());
         discriminative_error = model.LastError();
         std::cerr << "discriminative_error = " << discriminative_error
                   << std::endl;
-      } while(discriminative_error > 0.1f);
-      Model(d_i, d_o).SerializeParamsToFile("discriminative_conv_net");
+      } while(discriminative_error > 0.2f);
     }
 
     std::cout << "error = " << generative_error << " vs " << discriminative_error << std::endl;
