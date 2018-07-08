@@ -68,7 +68,7 @@ class Demo {
         relu_2(conv_2),
         linear_1(relu_2, {10}),
         sigmoid_1(linear_1),
-        linear_2(sigmoid_1, linear_1.input->sizes),
+        linear_2(sigmoid_1, linear_1.input[0]->sizes),
         deconv_1(linear_2, {5, 5}, 6, 1),
         relu_4(deconv_1),
         deconv_2(relu_4, {7, 7}, 1, 2),
@@ -117,17 +117,19 @@ extern "C" {
   }
 
   void LastInput(uint8_t* input) {
-    demo.Export(demo.input.output, input);
+    demo.Export(demo.input.output[0], input);
   }
 
   void LastOutput(uint8_t* output) {
-    demo.Export(demo.output.output, output);
+    demo.Export(demo.output.output[0], output);
   }
 
   void Predict(double* input, uint8_t* output) {
-    demo.Import(demo.sigmoid_1.output, input);
-    Range(demo.linear_2, demo.output).Apply(&Node::Forward);
-    demo.Export(demo.output.output, output);
+    demo.Import(demo.sigmoid_1.output[0], input);
+    Range(demo.linear_2, demo.output).Apply([](Node& node) {
+      node.Forward(1);
+    });
+    demo.Export(demo.output.output[0], output);
   }
 
   void LoadPretrainedModel() {

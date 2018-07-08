@@ -14,7 +14,6 @@ class Model {
   Model(Node& input, Node& output);
 
   void Train(float lambda, size_t iteration);
-  float OptimizeInput(const Tensor& output_target, float lambda);
   Tensor Predict(const Tensor& input);
   float Error();
   float ErrorInteger();

@@ -1,30 +1,19 @@
 #include "Input.hpp"
 
 Input::Input(const std::vector<size_t>& size) {
-  output = Tensor(size);
-
-  params = Tensor(size);
-  params_sensitivity = Tensor(size);
+  output = std::vector<Tensor>(T, Tensor(size));
+  
+  params_sensitivity = std::vector<Tensor>(T, Tensor());
+  input_sensitivity = std::vector<Tensor>(T, Tensor());
 }
 
-void Input::Forward() {
-  output.values = params.values;
+void Input::Forward(size_t batch_size) {
+  //#pragma omp parallel for
+  //for(size_t batch = 0; batch < batch_size; ++batch) {
+    //Tensor& O = output[batch];
+    //O = params;
+  //}
 }
 
-void Input::Backward() {
-  for(size_t i = 0; i<params_sensitivity.values.size(); ++i) {
-    params_sensitivity[i] += (*output_sensitivity)[i];
-  }
-
-  for(size_t y = 0; y<params.sizes[1]; ++y) {
-    for(size_t x = 0; x<params.sizes[0]; ++x) {
-      float delta = 0;
-      delta += params[(x + 1) % params.sizes[0] + params.sizes[0] * ((y + 0)% params.sizes[1])];
-      delta += params[(x - 1) % params.sizes[0] + params.sizes[0] * ((y + 0)% params.sizes[1])];
-      delta += params[(x + 0) % params.sizes[0] + params.sizes[0] * ((y + 1)% params.sizes[1])];
-      delta += params[(x + 0) % params.sizes[0] + params.sizes[0] * ((y - 1)% params.sizes[1])];
-      delta -= params[(x + 0) % params.sizes[0] + params.sizes[0] * ((y + 0)% params.sizes[1])] * 4;
-      params_sensitivity[x + params.sizes[0] * y] += delta * 0.001f;
-    }
-  }
+void Input::Backward(size_t batch_size) {
 }

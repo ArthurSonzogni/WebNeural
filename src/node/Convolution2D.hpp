@@ -9,8 +9,8 @@ class Convolution2D : public Node {
                  const std::vector<size_t> filter_size,
                  size_t num_features,
                  size_t stride = 1);
-   void Forward() override;
-   void Backward() override;
+   void Forward(size_t batch_size) override;
+   void Backward(size_t batch_size) override;
   private:
     std::vector<size_t> size_input;
     std::vector<size_t> size_params;

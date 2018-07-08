@@ -9,8 +9,8 @@ class Deconvolution2D : public Node {
                   std::vector<size_t> filter_size,
                   size_t num_filters,
                   size_t stride);
-  void Forward() override;
-  void Backward() override;
+  void Forward(size_t batch_size) override;
+  void Backward(size_t batch_size) override;
 
  private:
   std::vector<size_t> size_input;

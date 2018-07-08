@@ -3,20 +3,34 @@
 Relu::Relu(Node& node) {
   Link(node);
 
-  output = Tensor(input->sizes);
-  input_sensitivity = Tensor(input->sizes);
+  output = std::vector<Tensor>(T, Tensor(input[0]->sizes));
+
+  InitInternalSensitivity();
 }
 
-void Relu::Forward() {
-  size_t size = input->values.size();
-  for (size_t i = 0; i < size; ++i) {
-    output[i] = (*input)[i] > 0.f ? (*input)[i] : 0.f;
+void Relu::Forward(size_t batch_size) {
+  #pragma omp parallel for
+  for (size_t batch = 0; batch < batch_size; ++batch) {
+    Tensor& O = output[batch];
+    Tensor& I = *(input[batch]);
+
+    const size_t size = I.values.size();
+    for (size_t i = 0; i < size; ++i) {
+      O[i] = I[i] > 0.f ? I[i] : 0.f;
+    }
   }
 }
 
-void Relu::Backward() {
-  size_t size = input->values.size();
-  for (size_t i = 0; i < size; ++i) {
-    input_sensitivity[i] = (*input)[i] > 0.f ? (*output_sensitivity)[i] : 0.f;
+void Relu::Backward(size_t batch_size) {
+  #pragma omp parallel for
+  for (size_t batch = 0; batch < batch_size; ++batch) {
+    Tensor& I = *(input[batch]);
+    Tensor& OS = *(output_sensitivity[batch]);
+    Tensor& IS = input_sensitivity[batch];
+
+    const size_t size = I.values.size();
+    for (size_t i = 0; i < size; ++i) {
+      IS[i] = I[i] > 0.f ? OS[i] : 0.f;
+    }
   }
 }

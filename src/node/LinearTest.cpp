@@ -1,3 +1,4 @@
+#include <iostream>
 #include "node/Input.hpp"
 #include "node/Linear.hpp"
 #include "Model.hpp"

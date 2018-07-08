@@ -6,8 +6,8 @@
 class BilinearUpsampling : public Node {
  public:
   BilinearUpsampling(Node& input);
-  void Forward() override;
-  void Backward() override;
+  void Forward(size_t batch_size) override;
+  void Backward(size_t batch_size) override;
 };
 
 #endif /* end of include guard: BILINEAR_UPSAMPLING_H */

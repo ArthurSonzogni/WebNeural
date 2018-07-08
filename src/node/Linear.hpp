@@ -6,8 +6,8 @@
 class Linear : public Node {
   public:
     Linear(Node& node, std::vector<size_t> output_sizes);
-    void Forward() override;
-    void Backward() override;
+    void Forward(size_t batch_size) override;
+    void Backward(size_t batch_size) override;
   private:
     size_t input_size;
     size_t output_size;

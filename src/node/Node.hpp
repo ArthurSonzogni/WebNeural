@@ -4,21 +4,26 @@
 #include <functional>
 #include "Tensor.hpp"
 
+
 class Node {
  public:
-  // Forward step
-  Tensor* input = nullptr;
+  static constexpr size_t T = 64;
+
+  // Node internal state.
   Tensor params;
-  Tensor output;
+
+  // Forward step
+  std::vector<Tensor*> input;
+  std::vector<Tensor> output;
 
   // Backward
-  Tensor input_sensitivity;
-  Tensor params_sensitivity;
-  Tensor* output_sensitivity = nullptr;
+  std::vector<Tensor> input_sensitivity;
+  std::vector<Tensor> params_sensitivity;
+  std::vector<Tensor*> output_sensitivity;
 
-  virtual void Forward() = 0;
-  virtual void Backward() = 0;
-  void Update(float lambda);
+  virtual void Forward(size_t batch_size) = 0;
+  virtual void Backward(size_t batch_size) = 0;
+  void Update(size_t batch_size, float lambda);
 
   Node* next = nullptr;
   Node* previous = nullptr;
@@ -32,6 +37,7 @@ class Node {
 
  protected:
   void Link(Node& previous);
+  void InitInternalSensitivity();
 
  private:
   void InitIfNeeded();

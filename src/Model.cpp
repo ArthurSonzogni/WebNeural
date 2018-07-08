@@ -1,6 +1,4 @@
 #include "Model.hpp"
-
-#include <iostream>
 #include <algorithm>
 #include <sstream>
 #include <fstream>
@@ -12,62 +10,53 @@ Model::Model(Node& input, Node& output, const std::vector<Example>& examples)
 Model::Model(Node& input, Node& output) : Model(input, output, {}) {}
 
 void Model::Train(float lambda, size_t iterations) {
+  const float real_lambda = lambda / batch_size;
+
+  std::vector<Tensor> error(Node::T, Tensor(output.output[0].sizes));
   float sum_error = 0.f;
-  for (size_t i = 0; i < iterations; ++i) {
-    ++iteration;
-    iteration %= examples.size();
+  for (size_t i = 0; i < iterations;) {
+    size_t elements = std::min(Node::T, iterations-i);
 
     // Feed the neural network.
-    input.params = examples[iteration].input;
-
-    // Make a prediction.
-    Range(input, output).Apply(&Node::Forward);
-
-    // Compute the error.
-    Tensor error = examples[iteration].output - output.output;
-    output.output_sensitivity = &error;
-
-    // Compute the sensitivity.
-    ReverseRange(output, *input.next).Apply(&Node::Backward);
-
-    // Update the network once in a while.
-    if (i % batch_size == 0) {
-      Range(*input.next, output).Apply([lambda](Node& node) {
-        node.Update(lambda);
-      });
+    for (size_t t = 0; t < elements; ++t) {
+      input.output[t] = examples[(i + t) % examples.size()].input;
     }
 
-    sum_error += error.Error();
+    // Make a prediction.
+    Range(*input.next, output).Apply([&](Node& node) { node.Forward(elements); });
+
+    // Compute the error.
+    for (size_t t = 0; t < elements; ++t) {
+      error[t] = examples[(i + t) % examples.size()].output - output.output[t];
+      sum_error += error[t].Error();
+      output.output_sensitivity[t] = &(error[t]);
+    }
+
+    // Compute the sensitivity.
+    ReverseRange(output, *input.next).Apply([&](Node& node) {
+      node.Backward(elements);
+    });
+
+    // Update the network once in a while.
+    //if (iteration
+    Range(*input.next, output).Apply([&](Node& node) {
+      node.Update(elements, real_lambda);
+    });
+
+    i += elements;
   }
 
   last_error = sum_error / iterations;
 }
 
-float Model::OptimizeInput(const Tensor& output_target, float lambda) {
-  // Make a prediction.
-  Range(input, output).Apply(&Node::Forward);
-
-  // Compute the error.
-  Tensor error = output_target - output.output;
-  output.output_sensitivity = &error;
-
-  // Compute the sensitivity.
-  ReverseRange(output, *input.next).Apply(&Node::Backward);
-
-  // Update the input.
-  input.Update(lambda);
-
-  return error.Error();
-}
-
 Tensor Model::Predict(const Tensor& input_value) {
   // Feed the neural network.
-  input.params = input_value;
+  input.output[0] = input_value;
 
   // Make a prediction.
-  Range(input, output).Apply(&Node::Forward);
+  Range(*(input.next), output).Apply([](Node& node) { node.Forward(1); });
 
-  return output.output;
+  return output.output[0];
 }
 
 float Model::Error() {

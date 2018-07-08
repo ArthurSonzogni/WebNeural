@@ -34,10 +34,15 @@ add_library(main
   util.cpp
   util.hpp
 )
+target_link_libraries(main profiler)
 
 # ┌─────────────────────────────────────────────────┐
 # │ Test                                            │
 # └─────────────────────────────────────────────────┘
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-no-as-needed,-lprofiler")
+SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
+SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
 
 #set(BuildTest, NOT Web)
 #set(BuildTest, true)

@@ -100,43 +100,24 @@ TEST(MNIST, CNN) {
 
   // # First convolution layer + pooling
   // {28,28,1}
-  auto l1 = Convolution2D(input, {5, 5}, 10, 2);
-  //auto l2 = MaxPooling(l1);
+  auto l1 = Convolution2D(input, {5, 5}, 8, 2);
   auto l3 = Relu(l1);
-  // {10,10,16}
-
-  // # Second convolution layer + pooling
-  // {10,10,16}
   auto l4 = Convolution2D(l3, {5, 5}, 16, 2);
-  //auto l5 = MaxPooling(l4);
   auto l6 = Relu(l4);
-  // {3,3,32}
-
-  // {3,3,32}
   auto linear = Linear(l3, {512});
   auto relu = Relu(linear);
-  // {1024}
-
-  // # Dropout layer
-  // {128}
   auto drop = Dropout(relu, 0.4);
-  // {128}
-
-  // # Readout layer
-  // {128}
   auto l7 = Linear(drop, {10});
   auto output = Softmax(l7);
-  //// {10}
 
   training_set.resize(5000);
   Model model(input, output, training_set);
   Model tester(input, output, testing_set);
 
-  float lambda = 0.002f;
   float last_error = 1.0;
   for (int i = 1;; ++i) {
-    model.batch_size = 97 + last_error;
-    model.Train(lambda, 200);
+    model.batch_size = 23;
+    model.Train(0.5f, training_set.size());
 
     float error_training = model.LastError();
     last_error = last_error * 0.95f + error_training * 0.05f;
@@ -144,29 +125,29 @@ TEST(MNIST, CNN) {
     //float error_training = model.ErrorInteger();
     //float error_testing = tester.ErrorInteger();
     for (int i = 0; i < 100; ++i) {
-      if (i < last_error * 100)
+      if (i < error_training * 100)
         std::cout << "#";
       else
         std::cout << "-";
     }
-    std::cout << " " << last_error << " " << model.iteration << "/"
+    std::cout << " " << error_training << " " << model.iteration << "/"
               << model.examples.size() << std::endl;
 
     std::ofstream("l1.ppm") << image_PPM(l1.params);
     std::ofstream("l1.pgm") << image_PGM(l1.params);
-    std::ofstream("l1_output.ppm") << image_PPM(l1.output);
-    std::ofstream("l1_output.pgm") << image_PGM(l1.output);
-    std::ofstream("l3_output.ppm") << image_PPM(l3.output);
-    std::ofstream("l3_output.pgm") << image_PGM(l3.output);
+    std::ofstream("l1_output.ppm") << image_PPM(l1.output[0]);
+    std::ofstream("l1_output.pgm") << image_PGM(l1.output[0]);
+    std::ofstream("l3_output.ppm") << image_PPM(l3.output[0]);
+    std::ofstream("l3_output.pgm") << image_PGM(l3.output[0]);
     std::ofstream("l4.ppm") << image_PPM(l1.params);
 
-    if (last_error < 0.2)
+    if (error_training < 0.05)
       break;
   }
 
 
-  EXPECT_LE(model.ErrorInteger(), 0.005);
-  EXPECT_LE(tester.ErrorInteger(), 0.01);
+  EXPECT_LE(model.ErrorInteger(), 0.05);
+  EXPECT_LE(tester.ErrorInteger(), 0.1);
 }
 
 TEST(MNIST, GAN) {
@@ -183,9 +164,8 @@ TEST(MNIST, GAN) {
   auto g_3 = Sigmoid(g_2);
   auto g_4 = Linear(g_3, {256});
   auto g_5 = Sigmoid(g_4);
-  auto g_6 = Linear(g_5, {784});
+  auto g_6 = Linear(g_5, {28, 28});
   auto g_o = Sigmoid(g_6);
-  g_o.output.sizes = {28, 28};
 
   {
     Model(g_i, g_o).DeserializeParamsFromFile("generative_net");
@@ -238,8 +218,10 @@ TEST(MNIST, GAN) {
         generated.clear();
         float error = 0.f;
         for (size_t i = 0; i < examples.size(); ++i) {
-          model.Train(0.001f, 1);
-          generated.push_back(g_o.output);
+          model.Train(0.001f, Node::T);
+          for (auto& output : g_o.output) {
+            generated.push_back(output);
+          }
           error += model.LastError();
         }
         generative_error = error /= examples.size();
@@ -310,21 +292,21 @@ TEST(MNIST, CGAN) {
   auto g_i = Input({10});
   auto g_1 = Linear(g_i, {40});
   auto g_2 = Sigmoid(g_1);
-  auto g_3 = Linear(g_2, {10,10,32});
+  auto g_3 = Linear(g_2, {10,10,16});
   auto g_4 = Relu(g_3);
-  auto g_5 = Deconvolution2D(g_4, {3, 3}, 32, 2);
+  auto g_5 = Deconvolution2D(g_4, {3, 3}, 14, 1);
   auto g_6 = Sigmoid(g_5);
-  auto g_7 = Deconvolution2D(g_6, {7, 7}, 1, 1);
+  auto g_k = Dropout(g_6, 0.8);
+  auto g_7 = Deconvolution2D(g_k, {5, 5}, 1, 2);
   auto g_o = Sigmoid(g_7);
-  g_o.output.sizes = {27, 27};
-
 
   // Build a descriminative network.
   auto d_i = Input({27, 27});
-  auto d_2 = Convolution2D(d_i, {7,7}, 32, 1); // 27-7+1 = 21
+  auto d_2 = Convolution2D(d_i, {5,5}, 7, 2);
   auto d_3 = Sigmoid(d_2);
-  auto d_4 = Convolution2D(d_3, {3,3}, 32, 2); // (21-3)/2+1=10
-  auto d_5 = Relu(d_4);
+  auto d_4 = Convolution2D(d_3, {3,3}, 14, 1);
+  auto d_d = Dropout(d_4, 0.8);
+  auto d_5 = Relu(d_d);
   auto d_6 = Linear(d_5, {40});
   auto d_7 = Sigmoid (d_6);
   auto d_8 = Linear(d_7, {1});
@@ -334,8 +316,8 @@ TEST(MNIST, CGAN) {
 
   std::random_device seed;
   std::mt19937 random_generator(seed());
-  std::uniform_real_distribution<float> fake_value(0.1f, 0.5f);
-  std::uniform_real_distribution<float> real_value(0.5f, 0.9f);
+  std::uniform_real_distribution<float> fake_value(0.0f, 0.1f);
+  std::uniform_real_distribution<float> real_value(0.9f, 1.0f);
 
   for(size_t iteration = 0; iteration < 1000; ++iteration) {
 
@@ -362,7 +344,7 @@ TEST(MNIST, CGAN) {
 
       // Generate some examples.
       std::vector<Example> examples;
-      for(size_t i = 0; i<1000; ++i) {
+      for(size_t i = 0; i<10000; ++i) {
         auto input = Tensor::Random(d_i.params.sizes);
         auto output = Tensor({1,1,1});
         output.values = {real_value(seed)};
@@ -373,12 +355,15 @@ TEST(MNIST, CGAN) {
       auto model = Model(g_i, d_o, examples);
       model.batch_size = 23;
       model.Train(0.f, 20);
+      std::cerr << "pretrain error = " << model.LastError() << std::endl;
       do {
         generated.clear();
         float error = 0.f;
-        for (size_t i = 0; i < examples.size(); ++i) {
-          model.Train(0.01, 1);
-          generated.push_back(g_o.output);
+        for (size_t i = 0; i < examples.size(); i+=64) {
+          model.Train(0.01f, 64);
+          for(auto& output : g_o.output) {
+            generated.push_back(output);
+          }
           error += model.LastError();
         }
         generative_error = error /= examples.size();
@@ -427,8 +412,9 @@ TEST(MNIST, CGAN) {
       auto model = Model(d_i, d_o, examples);
       model.batch_size = 23;
       model.Train(0.f, 20);
+      std::cerr << "pretrain error = " << model.LastError() << std::endl;
       do {
-        model.Train(0.01, examples.size());
+        model.Train(0.01, examples.size()/2);
         discriminative_error = model.LastError();
         std::cerr << "discriminative_error = " << discriminative_error
                   << std::endl;
