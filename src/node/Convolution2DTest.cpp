@@ -137,7 +137,7 @@ TEST(Convolution2D, PerformanceBigKernel) {
   Model model(input, output, examples);
 
   auto start = std::chrono::steady_clock::now();
-  model.Train(0.001f, 40);
+  model.Train(0.001f, 1000);
   auto end = std::chrono::steady_clock::now();
 
   auto duration = end-start;
