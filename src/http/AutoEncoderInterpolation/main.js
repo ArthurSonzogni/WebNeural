@@ -37,10 +37,10 @@ function DrawImage(canvas, array) {
   ctx.putImageData(idata, 0, 0);
 }
 
-let random_seed = 132222;
+let random_seed = 5643;
 function random() {
-  for(var i = 0; i<2; ++i) {
-    random_seed = (random_seed * 121 + 97) % 562;
+  for(var i = 0; i<10; ++i) {
+    random_seed = (random_seed * 121 + 97) % 9999;
   }
   return random_seed;
 }
@@ -62,6 +62,13 @@ function SliderGroup(container) {
     sliders: [],
     values: function() {
       return this.sliders.map(it => it.value);
+    },
+    setValues: function(array) {
+      let i = 0; 
+      this.sliders.forEach(function(slider) {
+        slider.value = array[i];
+        i = i+1;
+      });
     },
     onUpdated: function(){},
   }
@@ -97,6 +104,9 @@ let container_lambda = document.querySelector("#container_lambda");
 let sliders_a = SliderGroup(container_a);
 let sliders_b = SliderGroup(container_b);
 let slider_lambda = Slider(container_c, UpdateImages);
+
+sliders_a.setValues([0.6, 0.3, 1, 0.3, 0.1, 1, 0.3, 1, 1, 0]);
+sliders_b.setValues([0.9, 0.9, 0.9, 0.7, 0.2, 0.9, 0.4, 0.3, 0.9, 0.3]);
 
 function UpdateImages() {
   let values_a = sliders_a.values();

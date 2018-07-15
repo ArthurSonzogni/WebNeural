@@ -76,10 +76,24 @@ Tensor Tensor::Random(const std::vector<size_t>& sizes) {
   return tensor;
 }
 
+// static
+Tensor Tensor::SphericalRandom(const std::vector<size_t>& sizes) {
+  Tensor tensor = Tensor::Random(sizes);
+  float XX = 0.f;
+  for (auto x : tensor.values) {
+    XX += x * x;
+  }
+  const float inv_norm = 1.0 / std::sqrt(XX);
+  for (auto& x : tensor.values) {
+    x *= inv_norm;
+  }
+  return tensor;
+}
+
 void Tensor::Randomize() {
   static std::mt19937 rng;
   std::normal_distribution<float> random(0.0, 1.0);
-  for(auto& i : values)
+  for (auto& i : values)
     i = random(rng);
 }
 
@@ -95,4 +109,30 @@ float& Tensor::at(size_t x, size_t y) {
 }
 float& Tensor::at(size_t x, size_t y, size_t z) {
   return values[x + sizes[0] * (y + sizes[1] * z)];
+}
+
+// static
+Tensor Tensor::Merge(std::vector<Tensor> tensors) {
+  size_t dx = std::sqrt(tensors.size());
+  size_t dy = (tensors.size()+dx-1) / dx;
+  size_t width = tensors[0].sizes[0];
+  size_t height = tensors[0].sizes[1];
+  Tensor merge({width * dx, height * dy, 1});
+
+  size_t i_dx = 0;
+  size_t i_dy = 0;
+  for (auto& t : tensors) {
+    for (size_t y = 0; y < height; ++y) {
+      for (size_t x = 0; x < width; ++x) {
+        merge.at(x + width * i_dx, y + height * i_dy) = t.at(x,y);
+      }
+    }
+
+    ++i_dx;
+    if (i_dx >= dx) {
+      i_dx = 0;
+      ++i_dy;
+    }
+  }
+  return merge;
 }

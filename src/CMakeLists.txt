@@ -7,6 +7,8 @@ add_library(main
   Model.hpp
   Tensor.cpp
   Tensor.hpp
+  node/BatchNormalization.cpp
+  node/BatchNormalization.hpp
   node/Bias.cpp
   node/Bias.hpp
   node/BilinearUpsampling.cpp
@@ -27,6 +29,8 @@ add_library(main
   node/Node.hpp
   node/Relu.cpp
   node/Relu.hpp
+  node/LeakyRelu.cpp
+  node/LeakyRelu.hpp
   node/Sigmoid.cpp
   node/Sigmoid.hpp
   node/Softmax.cpp
@@ -34,19 +38,19 @@ add_library(main
   util.cpp
   util.hpp
 )
-target_link_libraries(main profiler)
+#target_link_libraries(main profiler)
 
 # ┌─────────────────────────────────────────────────┐
 # │ Test                                            │
 # └─────────────────────────────────────────────────┘
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-no-as-needed,-lprofiler")
-SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
-SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
+if (NOT Web)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-no-as-needed,-lprofiler")
+  SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
+  SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
+endif()
 
-#set(BuildTest, NOT Web)
-#set(BuildTest, true)
-#if (BuildTest)
+if (NOT Web)
 
 # Note: For gtest, please follow:
 # https://stackoverflow.com/questions/24295876/cmake-cannot-find-a-googletest-required-library
@@ -80,6 +84,6 @@ add_new_test(mnist_tests
   test/mnist_test.cpp
 )
 
-#endif(BuildTest)
+endif(NOT Web)
 
 add_subdirectory(http)

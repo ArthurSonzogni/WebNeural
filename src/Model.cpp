@@ -10,8 +10,6 @@ Model::Model(Node& input, Node& output, const std::vector<Example>& examples)
 Model::Model(Node& input, Node& output) : Model(input, output, {}) {}
 
 void Model::Train(float lambda, size_t iterations) {
-  const float real_lambda = lambda / batch_size;
-
   std::vector<Tensor> error(Node::T, Tensor(output.output[0].sizes));
   float sum_error = 0.f;
   for (size_t i = 0; i < iterations;) {
@@ -19,7 +17,7 @@ void Model::Train(float lambda, size_t iterations) {
 
     // Feed the neural network.
     for (size_t t = 0; t < elements; ++t) {
-      input.output[t] = examples[(i + t) % examples.size()].input;
+      input.output[t] = examples[(iteration + t) % examples.size()].input;
     }
 
     // Make a prediction.
@@ -27,7 +25,7 @@ void Model::Train(float lambda, size_t iterations) {
 
     // Compute the error.
     for (size_t t = 0; t < elements; ++t) {
-      error[t] = examples[(i + t) % examples.size()].output - output.output[t];
+      error[t] = examples[(iteration + t) % examples.size()].output - output.output[t];
       sum_error += error[t].Error();
       output.output_sensitivity[t] = &(error[t]);
     }
@@ -38,12 +36,12 @@ void Model::Train(float lambda, size_t iterations) {
     });
 
     // Update the network once in a while.
-    //if (iteration
     Range(*input.next, output).Apply([&](Node& node) {
-      node.Update(elements, real_lambda);
+      node.Update(elements, lambda);
     });
 
     i += elements;
+    iteration += elements;
   }
 
   last_error = sum_error / iterations;
@@ -96,7 +94,7 @@ std::vector<float> Model::SerializeParams() {
 
 void Model::DeserializeParams(const std::vector<float>& value) {
   size_t i = 0;
-  Range(input, output).Apply([&value,&i](Node& node) {
+  Range(input, output).Apply([&value, &i](Node& node) {
     for (auto& p : node.params.values)
       p = value[i++];
   });

@@ -17,9 +17,11 @@ struct Tensor {
   Tensor(size_t size);
   Tensor(const std::vector<size_t>& sizes);
 
+  static Tensor Random(const std::vector<size_t>& sizes);
+  static Tensor SphericalRandom(const std::vector<size_t>& sizes);
+
   std::string ToString();
   void Fill(float value);
-  static Tensor Random(const std::vector<size_t>& sizes);
   void Randomize();
   void UniformRandom();
   float Error();
@@ -34,6 +36,8 @@ struct Tensor {
   Tensor operator-(const Tensor& tensor) const;
   bool operator==(const Tensor& other) const;
   bool operator!=(const Tensor& other) const;
+
+  static Tensor Merge(std::vector<Tensor> tensors);
 };
 
 #endif /* end of include guard: TENSOR_H */

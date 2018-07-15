@@ -6,6 +6,7 @@
 #include "node/Convolution2D.hpp"
 #include "node/Linear.hpp"
 #include "node/Relu.hpp"
+#include "node/LeakyRelu.hpp"
 #include "node/Sigmoid.hpp"
 #include "node/Deconvolution2D.hpp"
 #include "node/Input.hpp"
@@ -50,12 +51,16 @@ class Demo {
   Relu relu_1;
   Convolution2D conv_2;
   Relu relu_2;
+  Convolution2D conv_3;
+  Relu relu_3;
   Linear linear_1;
   Sigmoid sigmoid_1;
   Linear linear_2;
   Deconvolution2D deconv_1;
   Relu relu_4;
   Deconvolution2D deconv_2;
+  Relu relu_5;
+  Deconvolution2D deconv_3;
   Sigmoid output;
 
   Model model;
@@ -64,15 +69,19 @@ class Demo {
       : input({27, 27, 1}),
         conv_1(input, {7, 7}, 6, 2),
         relu_1(conv_1),
-        conv_2(relu_1, {5, 5}, 16, 1),
+        conv_2(relu_1, {3, 3}, 16, 2),
         relu_2(conv_2),
-        linear_1(relu_2, {10}),
+        conv_3(relu_2, {3, 3}, 32, 2),
+        relu_3(conv_3),
+        linear_1(relu_3, {10}),
         sigmoid_1(linear_1),
         linear_2(sigmoid_1, linear_1.input[0]->sizes),
-        deconv_1(linear_2, {5, 5}, 6, 1),
+        deconv_1(linear_2, {3, 3}, 32, 2),
         relu_4(deconv_1),
-        deconv_2(relu_4, {7, 7}, 1, 2),
-        output(deconv_2),
+        deconv_2(relu_4, {3, 3}, 16, 2),
+        relu_5(deconv_2),
+        deconv_3(relu_5, {7, 7}, 1, 2),
+        output(deconv_3),
         model(input, output, training_set) {
     model.batch_size = 100;
   }
@@ -111,9 +120,10 @@ Demo demo;
 
 extern "C" {
 
+  float lambda = 0.003f;
   void Train() {
-    demo.model.batch_size = 23;
-    demo.Train(0.01f / demo.model.batch_size, 13);
+    lambda = std::max(lambda*0.999f, 0.0001f);
+    demo.Train(lambda, 13);
   }
 
   void LastInput(uint8_t* input) {
@@ -133,17 +143,17 @@ extern "C" {
   }
 
   void LoadPretrainedModel() {
+    lambda = 0.0001f;
     demo.Load();
   }
 };
 
-#ifndef WEB
+#ifndef Web
 int main(int argc, const char *argv[])
 {
   demo.Load();
-  demo.model.batch_size = 111;
-  demo.Train(0.f, 200);
-  demo.Train(0.001f / demo.model.batch_size, 4000);
+  //demo.Train(0.f, 200);
+  demo.Train(0.00001f, 6400);
   std::cout << "error " << demo.model.LastError() << std::endl;
   demo.Save();
   return 0;
