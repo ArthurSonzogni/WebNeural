@@ -7,10 +7,10 @@
 
 TEST(Model, Serialize) {
   auto input = Input({5,5});
-  auto linear = Linear(input, {5,5});
-  auto output = Sigmoid(linear);
+  auto linear = Linear(&input, {5,5});
+  auto output = Sigmoid(&linear);
 
-  Model model(input, output, {});
+  Model model(&input, &output, {});
 
   auto serialized_params = model.SerializeParams();
 

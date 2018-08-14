@@ -5,7 +5,7 @@
 
 class MaxPooling : public Node {
  public:
-  MaxPooling(Node& input);
+  MaxPooling(Node* input);
   void Forward(size_t batch_size) override;
   void Backward(size_t batch_size) override;
  private:

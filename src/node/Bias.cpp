@@ -1,6 +1,6 @@
 #include "node/Bias.hpp"
 
-Bias::Bias(Node& node) {
+Bias::Bias(Node* node) {
   Link(node);
 
   output = std::vector<Tensor>(T, Tensor(input[0]->sizes));

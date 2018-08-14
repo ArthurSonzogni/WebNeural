@@ -30,13 +30,13 @@ TEST(Relu, Relu) {
 
   // Build a neural network.
   Input input({2});
-  auto a = Linear(input, {4});
-  auto b = Relu(a);
-  auto c = Linear(b, {2});
-  auto d = Softmax(c);
+  auto a = Linear(&input, {4});
+  auto b = Relu(&a);
+  auto c = Linear(&b, {2});
+  auto d = Softmax(&c);
   auto& output = d;
 
-  Model model(input, output, examples);
+  Model model(&input, &output, examples);
 
   for (int i = 0; i < 1000; ++i) {
     model.Train(0.002f, 10000);

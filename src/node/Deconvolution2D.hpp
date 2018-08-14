@@ -5,7 +5,7 @@
 
 class Deconvolution2D : public Node {
  public:
-  Deconvolution2D(Node& input,
+  Deconvolution2D(Node* input,
                   std::vector<size_t> filter_size,
                   size_t num_filters,
                   size_t stride);

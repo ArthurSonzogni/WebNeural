@@ -1,7 +1,7 @@
 #include <cmath>
 #include "Sigmoid.hpp"
 
-Sigmoid::Sigmoid(Node& node) {
+Sigmoid::Sigmoid(Node* node) {
   Link(node);
 
   output = std::vector<Tensor>(T, Tensor(input[0]->sizes));

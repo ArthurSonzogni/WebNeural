@@ -1,6 +1,6 @@
 #include "node/Relu.hpp"
 
-Relu::Relu(Node& node) {
+Relu::Relu(Node* node) {
   Link(node);
 
   output = std::vector<Tensor>(T, Tensor(input[0]->sizes));

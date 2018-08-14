@@ -4,7 +4,6 @@
 #include <functional>
 #include "Tensor.hpp"
 
-
 class Node {
  public:
   static constexpr size_t T = 64;
@@ -33,10 +32,10 @@ class Node {
   void Unlock() { locked = false; }
   void Clear();
 
-  static void Link(Node& previous, Node& next);
+  static void Link(Node* previous, Node* next);
 
  protected:
-  void Link(Node& previous);
+  void Link(Node* previous);
   void InitInternalSensitivity();
 
  private:
@@ -44,28 +43,30 @@ class Node {
   bool initiated = false;
   Tensor smoothed_squared_gradient;
   Tensor momentum;
+
+  size_t n = 0;
 };
 
 class Range {
  public:
-  Range(Node& first, Node& last) : first(first), last(last) {}
-  void Apply(const std::function<void(Node&)>& f);
+  Range(Node* first, Node* last) : first(first), last(last) {}
+  void Apply(const std::function<void(Node*)>& f);
   void Apply(void (Node::*f)());
 
  private:
-  Node& first;
-  Node& last;
+  Node* first;
+  Node* last;
 };
 
 class ReverseRange {
  public:
-  ReverseRange(Node& first, Node& last) : first(first), last(last) {}
-  void Apply(const std::function<void(Node&)>& f);
+  ReverseRange(Node* first, Node* last) : first(first), last(last) {}
+  void Apply(const std::function<void(Node*)>& f);
   void Apply(void (Node::*f)());
 
  private:
-  Node& first;
-  Node& last;
+  Node* first;
+  Node* last;
 };
 
 #endif /* end of include guard: NODE_H */

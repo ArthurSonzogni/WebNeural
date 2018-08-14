@@ -1,7 +1,7 @@
 #include <iostream>
 #include "node/MaxPooling.hpp"
 
-MaxPooling::MaxPooling(Node& node) {
+MaxPooling::MaxPooling(Node* node) {
   Link(node);
 
   // clang-format off

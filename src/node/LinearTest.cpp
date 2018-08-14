@@ -25,11 +25,11 @@ TEST(Linear, Linear) {
 
   // Build a neural network.
   Input input({3});
-  auto output = Linear(input, {2});
+  auto output = Linear(&input, {2});
 
   // Optimize it.
-  Model model(input, output, examples);
-  model.Train(0.001f, 200000);
+  Model model(&input, &output, examples);
+  model.Train(0.001f, 2000000);
 
   // Check the tuned params
   Tensor expected_params({8,1,1});

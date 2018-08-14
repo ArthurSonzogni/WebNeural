@@ -9,3 +9,4 @@ configure_file(
 )
 
 add_subdirectory(AutoEncoderInterpolation)
+add_subdirectory(AutoEncoderInterpolationFashion)

@@ -47,7 +47,7 @@ endif()
 # ┌─────────────────────────────────────────────────┐
 # │ MNIST reader                                    │
 # └─────────────────────────────────────────────────┘
-find_package(MNIST PATHS third_party/mnist)
+find_package(MNIST PATHS third_party/mnist-fashion)
 if(NOT MNIST_FOUND)
     message(FATAL_ERROR
      "MNIST loader could not be found.

@@ -5,7 +5,7 @@
 
 class Dropout : public Node {
  public:
-  Dropout(Node& input, float ratio);
+  Dropout(Node* input, float ratio);
   void Forward(size_t batch_size) override;
   void Backward(size_t batch_size) override;
  private:

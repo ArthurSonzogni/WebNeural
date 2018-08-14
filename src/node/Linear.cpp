@@ -2,13 +2,13 @@
 #include "node/Linear.hpp"
 #include <cmath>
 
-Linear::Linear(Node& node, std::vector<size_t> output_sizes) {
+Linear::Linear(Node* node, std::vector<size_t> output_sizes) {
   Link(node);
 
   input_size = input[0]->values.size();
   output_size = Multiply(output_sizes);
 
-  params = Tensor((input_size + 1) * output_size);
+  params = Tensor({input_size + 1, output_size});
   output = std::vector<Tensor>(T, Tensor(output_sizes));
 
   params.Randomize();
@@ -22,19 +22,17 @@ void Linear::Forward(size_t batch_size) {
   for(size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& O = output[batch];
     Tensor& I = *(input[batch]);
+    size_t p = 0;
     for (size_t output_index = 0; output_index < output_size; ++output_index) {
-      size_t p = output_index * (input_size + 1);
       float v = 0.f;
 
       // Linear part.
       for (size_t input_index = 0; input_index < input_size; ++input_index) {
-        v += I[input_index] * params[p];
-        ++p;
+        v += I[input_index] * params[p++];
       }
 
       // Bias pars.
-      v += params[p];
-      ++p;
+      v += params[p++];
 
       O[output_index] = v;
     }
@@ -52,17 +50,16 @@ void Linear::Backward(size_t batch_size) {
     IS.Fill(0.f);
     size_t p = 0;
     for (size_t output_index = 0; output_index < output_size; ++output_index) {
+      const float os = OS[output_index];
 
       // Linear part.
       for (size_t input_index = 0; input_index < input_size; ++input_index) {
-        PS[p] += I[input_index] * OS[output_index];
-        IS[input_index] += params[p] * OS[output_index];
-        ++p;
+        PS[p] += I[input_index] * os;
+        IS[input_index] += params[p++] * os;
       }
 
       // Bias pars.
-      PS[p] += OS[output_index];
-      ++p;
+      PS[p++] += os;
     }
   }
 }

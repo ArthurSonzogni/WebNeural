@@ -6,7 +6,7 @@
 Tensor::Tensor() : Tensor({}) {}
 Tensor::Tensor(size_t size) : Tensor(std::vector<size_t>{size}) {}
 Tensor::Tensor(const std::vector<size_t>& sizes)
-    : values(Multiply(sizes)), sizes(sizes) {}
+    : values(Multiply(sizes), 0.f), sizes(sizes) {}
 
 void Tensor::Fill(float value) {
   std::fill(values.begin(), values.end(), value);
@@ -26,7 +26,7 @@ void Tensor::operator*=(float lambda) {
   }
 }
 
-void Tensor::operator+=(Tensor other) {
+void Tensor::operator+=(const Tensor& other) {
   for (size_t i = 0; i < values.size(); ++i) {
     values[i] += other[i];
   }
@@ -50,7 +50,7 @@ float Tensor::Error() {
 
 size_t Tensor::ArgMax() {
   size_t i_max = 0;
-  for (size_t i = 0; i < values.size(); ++i) {
+  for (size_t i = 1; i < values.size(); ++i) {
     if (values[i] > values[i_max])
       i_max = i;
   }
@@ -115,8 +115,10 @@ float& Tensor::at(size_t x, size_t y, size_t z) {
 Tensor Tensor::Merge(std::vector<Tensor> tensors) {
   size_t dx = std::sqrt(tensors.size());
   size_t dy = (tensors.size()+dx-1) / dx;
+  //size_t dx = tensors.size();
+  //size_t dy = 1;
   size_t width = tensors[0].sizes[0];
-  size_t height = tensors[0].sizes[1];
+  size_t height = tensors[0].sizes.size() > 2 ? tensors[0].sizes[1] : 1;
   Tensor merge({width * dx, height * dy, 1});
 
   size_t i_dx = 0;
@@ -135,4 +137,14 @@ Tensor Tensor::Merge(std::vector<Tensor> tensors) {
     }
   }
   return merge;
+}
+
+void Tensor::Clip(const float c) {
+  for (auto& v : values)
+    v = std::min(c, std::max(-c, v));
+}
+
+void Tensor::Clip(const float v_min, const float v_max) {
+  for (auto& v : values)
+    v = std::min(v_max, std::max(v_min, v));
 }

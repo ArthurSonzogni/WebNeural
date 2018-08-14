@@ -1,6 +1,6 @@
 #include "BilinearUpsampling.hpp"
 
-BilinearUpsampling::BilinearUpsampling(Node& node) {
+BilinearUpsampling::BilinearUpsampling(Node* node) {
   Link(node);
 
   output = std::vector<Tensor>(T, Tensor({

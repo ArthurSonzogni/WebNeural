@@ -1,12 +1,14 @@
+#include <iostream>
 #include "node/Convolution2D.hpp"
 #include <cmath>
 
-Convolution2D::Convolution2D(Node& node,
+Convolution2D::Convolution2D(Node* node,
                              const std::vector<size_t> sizes,
                              size_t num_features,
                              size_t stride)
     : stride(stride) {
   Link(node);
+  
 
   // clang-format off
   size_input = {
@@ -21,6 +23,13 @@ Convolution2D::Convolution2D(Node& node,
     size_input[2],
     num_features,
   };
+
+  if ((size_input[0] - size_params[0]) % stride != 0) {
+    std::cerr << "Error line = " << __LINE__ << " " << size_input[0] << " " << size_params[0] << " " << stride << std::endl;
+  }
+  if ((size_input[1] - size_params[1]) % stride != 0) {
+    std::cerr << "Error line = " << __LINE__ << " " << size_input[1] << " " << size_params[1] << " " << stride << std::endl;
+  }
 
   size_output = {
     (size_input[0] - size_params[0]) / stride + 1,

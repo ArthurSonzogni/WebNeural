@@ -105,8 +105,8 @@ let sliders_a = SliderGroup(container_a);
 let sliders_b = SliderGroup(container_b);
 let slider_lambda = Slider(container_c, UpdateImages);
 
-sliders_a.setValues([0.7, 0.1, 0.9, 0.6, 0.2, 0.6, 0, 0.6, 1, 0.4]);
-sliders_b.setValues([0.5, 0.1, 0.4, 0.5, 0.2, 0.8, 0, 0.4, 1, 0.1]);
+sliders_a.setValues([0.6, 0.3, 1, 0.3, 0.1, 1, 0.3, 1, 1, 0]);
+sliders_b.setValues([0.9, 0.9, 0.9, 0.7, 0.2, 0.9, 0.4, 0.3, 0.9, 0.3]);
 
 function UpdateImages() {
   let values_a = sliders_a.values();

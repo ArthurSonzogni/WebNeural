@@ -5,7 +5,7 @@
 
 class BilinearUpsampling : public Node {
  public:
-  BilinearUpsampling(Node& input);
+  BilinearUpsampling(Node* input);
   void Forward(size_t batch_size) override;
   void Backward(size_t batch_size) override;
 };

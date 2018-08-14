@@ -1,6 +1,6 @@
 #include "node/Dropout.hpp"
 
-Dropout::Dropout(Node& node, float ratio) : ratio(ratio) {
+Dropout::Dropout(Node* node, float ratio) : ratio(ratio) {
   Link(node);
 
   params = Tensor();

@@ -5,7 +5,7 @@
 
 class Convolution2D : public Node {
   public:
-   Convolution2D(Node& node,
+   Convolution2D(Node* node,
                  const std::vector<size_t> filter_size,
                  size_t num_features,
                  size_t stride = 1);

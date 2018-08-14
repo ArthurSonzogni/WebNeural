@@ -5,7 +5,7 @@
 
 class Sigmoid : public Node {
  public:
-  Sigmoid(Node& input);
+  Sigmoid(Node* input);
   void Forward(size_t batch_size) override;
   void Backward(size_t batch_size) override;
 };

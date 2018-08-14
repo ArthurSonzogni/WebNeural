@@ -42,6 +42,14 @@ std::string image_PGM(const Tensor& tensor, float v_min, float v_max) {
   return ss.str();
 }
 
+std::string image_PPM_centered(const Tensor& tensor) {
+  float v = tensor.values[0];
+  for (const auto& it : tensor.values) {
+    v = std::max(std::abs(v), it);
+  }
+  return image_PPM(tensor, -v, +v);
+}
+
 std::string image_PPM(const Tensor& tensor) {
   float v_min = tensor.values[0];
   float v_max = tensor.values[0];
@@ -49,6 +57,10 @@ std::string image_PPM(const Tensor& tensor) {
     v_min = std::min(v_min, it);
     v_max = std::max(v_max, it);
   }
+  return image_PPM(tensor, v_min, v_max);
+}
+
+std::string image_PPM(const Tensor& tensor, float v_min, float v_max) {
   float scale = std::max(std::abs(v_min), std::abs(v_max));
 
   size_t width = tensor.sizes[0];

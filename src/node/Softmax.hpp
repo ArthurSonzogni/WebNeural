@@ -5,7 +5,7 @@
 
 class Softmax : public Node {
  public:
-  Softmax(Node& input);
+  Softmax(Node* input);
   void Forward(size_t batch_size) override;
   void Backward(size_t batch_size) override;
 };

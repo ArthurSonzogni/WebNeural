@@ -1,8 +1,12 @@
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(main
+  Allocator.cpp
+  Allocator.hpp
   Image.cpp
   Image.hpp
+  LossFunction.cpp
+  LossFunction.hpp
   Model.cpp
   Model.hpp
   Tensor.cpp
@@ -21,6 +25,8 @@ add_library(main
   node/Dropout.hpp
   node/Input.cpp
   node/Input.hpp
+  node/LeakyRelu.cpp
+  node/LeakyRelu.hpp
   node/Linear.cpp
   node/Linear.hpp
   node/MaxPooling.cpp
@@ -29,14 +35,14 @@ add_library(main
   node/Node.hpp
   node/Relu.cpp
   node/Relu.hpp
-  node/LeakyRelu.cpp
-  node/LeakyRelu.hpp
   node/Sigmoid.cpp
   node/Sigmoid.hpp
   node/Softmax.cpp
   node/Softmax.hpp
   util.cpp
   util.hpp
+  util/stable_softmax.cpp
+  util/stable_softmax.hpp
 )
 #target_link_libraries(main profiler)
 

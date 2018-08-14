@@ -2,7 +2,7 @@
 #include <cmath>
 #include <iostream>
 
-Deconvolution2D::Deconvolution2D(Node& node,
+Deconvolution2D::Deconvolution2D(Node* node,
                              const std::vector<size_t> sizes,
                              size_t num_features,
                              size_t stride)

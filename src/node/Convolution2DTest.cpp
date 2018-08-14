@@ -45,9 +45,9 @@ TEST(Convolution2D, Convolution2D) {
 
   // Build a neural network.
   Input input({30,30});
-  auto output = Convolution2D(input, {3,3}, 8);
+  auto output = Convolution2D(&input, {3,3}, 8);
 
-  Model model(input, output, examples);
+  Model model(&input, &output, examples);
 
   for (int i = 0; i < 1000; ++i) {
     model.batch_size = 100;
@@ -133,8 +133,8 @@ TEST(Convolution2D, PerformanceBigKernel) {
 
   // Build a neural network.
   Input input({128,128});
-  auto output = Convolution2D(input, {15,15}, 8);
-  Model model(input, output, examples);
+  auto output = Convolution2D(&input, {15,15}, 8);
+  Model model(&input, &output, examples);
 
   auto start = std::chrono::steady_clock::now();
   model.Train(0.001f, 1000);
@@ -157,8 +157,8 @@ TEST(Convolution2D, PerformanceSmallKernel) {
 
   // Build a neural network.
   Input input({256,256});
-  auto output = Convolution2D(input, {3,3}, 8);
-  Model model(input, output, examples);
+  auto output = Convolution2D(&input, {3,3}, 8);
+  Model model(&input, &output, examples);
 
   auto start = std::chrono::steady_clock::now();
   model.Train(0.001f, 100);

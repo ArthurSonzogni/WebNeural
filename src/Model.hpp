@@ -2,6 +2,7 @@
 #define MODEL_H
 
 #include "node/Node.hpp"
+#include "LossFunction.hpp"
 
 struct Example {
   Tensor input;
@@ -10,8 +11,8 @@ struct Example {
 
 class Model {
  public:
-  Model(Node& input, Node& output, const std::vector<Example>& examples);
-  Model(Node& input, Node& output);
+  Model(Node* input, Node* output, const std::vector<Example>& examples);
+  Model(Node* input, Node* output);
 
   void Train(float lambda, size_t iteration);
   Tensor Predict(const Tensor& input);
@@ -25,11 +26,15 @@ class Model {
   void SerializeParamsToFile(const std::string& filename);
   void DeserializeParamsFromFile(const std::string& filename);
 
-  Node& input;
-  Node& output;
+  void PrintGradient();
+
+  Node* input;
+  Node* output;
   std::vector<Example> examples;
   size_t iteration = 0;
   size_t batch_size = 20;
+
+  LossFunction::F *loss_function = LossFunction::SquaredDifference;
 
  private:
   std::vector<Node*> nodes;  // ]input, output]

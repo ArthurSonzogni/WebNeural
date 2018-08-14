@@ -39,19 +39,19 @@ TEST(Deconvolution2D, Deconvolution2D) {
 
   // Build a neural network.
   auto input = Input({27, 27, 1});
-  auto conv_1 = Convolution2D(input, {5, 5}, 4, 2);  // {12,12,8}
-  auto relu_1 = Relu(conv_1);
-  auto conv_2 = Convolution2D(relu_1, {7, 7}, 8, 1);  // {4,4,16}
-  auto relu_2 = Relu(conv_2);
-  auto linear = Linear(relu_2, {10});
-  auto relu_3 = Relu(linear);
-  auto new_base = Linear(relu_3, linear.input[0]->sizes);
-  auto deco_1 = Deconvolution2D(new_base, {7, 7}, 4, 1); // {4,4,64}
-  auto relu_4 = Relu(deco_1);
-  auto deco_2 = Deconvolution2D(relu_4, {5, 5}, 1, 2);  // {4,4,64}
-  auto output = Sigmoid(deco_2);
+  auto conv_1 = Convolution2D(&input, {5, 5}, 4, 2);  // {12,12,8}
+  auto relu_1 = Relu(&conv_1);
+  auto conv_2 = Convolution2D(&relu_1, {7, 7}, 8, 1);  // {4,4,16}
+  auto relu_2 = Relu(&conv_2);
+  auto linear = Linear(&relu_2, {10});
+  auto relu_3 = Relu(&linear);
+  auto new_base = Linear(&relu_3, linear.input[0]->sizes);
+  auto deco_1 = Deconvolution2D(&new_base, {7, 7}, 4, 1); // {4,4,64}
+  auto relu_4 = Relu(&deco_1);
+  auto deco_2 = Deconvolution2D(&relu_4, {5, 5}, 1, 2);  // {4,4,64}
+  auto output = Sigmoid(&deco_2);
 
-  Model model(input, output, training_set);
+  Model model(&input, &output, training_set);
 
   for (int i = 0; i < 1000; ++i) {
     model.batch_size = 400;

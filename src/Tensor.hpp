@@ -29,10 +29,14 @@ struct Tensor {
   float& at(size_t x, size_t y);
   float& at(size_t x, size_t y, size_t z);
 
+  void Clip(const float c);
+  void Clip(const float min, const float max);
+
   // Operators.
   void operator*=(float lambda);
-  void operator+=(Tensor other);
+  void operator+=(const Tensor& other);
   float& operator[](size_t i) { return values[i]; }
+  const float& operator[](size_t i) const { return values[i]; }
   Tensor operator-(const Tensor& tensor) const;
   bool operator==(const Tensor& other) const;
   bool operator!=(const Tensor& other) const;
