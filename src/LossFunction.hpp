@@ -27,10 +27,13 @@ F SquaredDifference; // S
 //               ⎝1  ⎠
 F CrossEntropy;
 
+// Same as CrossEntropy, but as is there was a Softmax layer in at the end.
 F SoftmaxCrossEntropy;
 
 // ⌠
 // ⌡ (y > 0.5) z dy- (y<0.5) z dy;
+//
+// Only work with a one dimensional output.
 F WasserStein;
 
 } // namespace LossFunction

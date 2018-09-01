@@ -47,10 +47,7 @@ void Model::Train(float lambda, size_t iterations) {
       node->Update(elements, lambda);
     });
 
-    // Clip (Wassertein GAN)
-    Range(input->next, output).Apply([&](Node* node) {
-      node->params.Clip(0.1f);
-    });
+    post_update_function(this);
 
     i += elements;
     iteration += elements;

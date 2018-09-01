@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <cmath>
 
-static constexpr float ADAM_b1 = 0.8f;
-static constexpr float ADAM_b2 = 0.9f;
-static constexpr float ADAM_epsilon = 1e-8f;
+static constexpr float ADAM_b1 = 0.0f;
+static constexpr float ADAM_b2 = 0.95f;
+static constexpr float ADAM_epsilon = 1e-5f;
 constexpr size_t Node::T;
 
 void Node::Update(size_t batch_size, float lambda) {

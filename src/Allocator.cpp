@@ -10,9 +10,11 @@
 #include "node/Linear.hpp"
 #include "node/MaxPooling.hpp"
 #include "node/Node.hpp"
+#include "node/Noise.hpp"
 #include "node/Relu.hpp"
 #include "node/Sigmoid.hpp"
 #include "node/Softmax.hpp"
+#include "node/Tanh.hpp"
 
 Node* Allocator::BatchNormalization(Node* input) {
   nodes.emplace_back(new ::BatchNormalization(input));
@@ -82,7 +84,17 @@ Node* Allocator::Sigmoid(Node* input) {
   return nodes.back().get();
 }
 
+Node* Allocator::Tanh(Node* input) {
+  nodes.emplace_back(new ::Tanh(input));
+  return nodes.back().get();
+}
+
 Node* Allocator::Softmax(Node* input) {
   nodes.emplace_back(new ::Softmax(input));
+  return nodes.back().get();
+}
+
+Node* Allocator::Noise(Node* input, float sigma) {
+  nodes.emplace_back(new ::Noise(input, sigma));
   return nodes.back().get();
 }

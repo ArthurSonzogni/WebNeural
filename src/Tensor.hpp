@@ -26,11 +26,16 @@ struct Tensor {
   void UniformRandom();
   float Error();
   size_t ArgMax();
+  float at(size_t x, size_t y) const;
+  float at(size_t x, size_t y, size_t z) const;
   float& at(size_t x, size_t y);
   float& at(size_t x, size_t y, size_t z);
 
   void Clip(const float c);
   void Clip(const float min, const float max);
+
+  void Rescale(const float min = 0.f, const float max = 255.f);
+  static Tensor ConcatenateHorizontal(const Tensor& A, const Tensor& B);
 
   // Operators.
   void operator*=(float lambda);

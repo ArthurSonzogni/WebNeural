@@ -16,7 +16,7 @@ std::string image_PGM(const Tensor& tensor, float v_min, float v_max) {
   size_t width = tensor.sizes[0];
   size_t height = tensor.sizes[1];
   size_t num_images = tensor.values.size() / (width * height);
-  size_t total_height = (height + 1) * num_images;
+  size_t total_height = (height + 1) * num_images - 1;
 
   std::stringstream ss;
   ss << "P2" << std::endl;
@@ -33,8 +33,10 @@ std::string image_PGM(const Tensor& tensor, float v_min, float v_max) {
       }
       ss << std::endl;
     }
-    for (size_t x = 0; x < width; ++x) {
-      ss << 0 << " ";
+    if (image != num_images - 1) {
+      for (size_t x = 0; x < width; ++x) {
+        ss << 0 << " ";
+      }
     }
     ss << std::endl;
   }
@@ -66,7 +68,7 @@ std::string image_PPM(const Tensor& tensor, float v_min, float v_max) {
   size_t width = tensor.sizes[0];
   size_t height = tensor.sizes[1];
   size_t num_images = tensor.values.size() / (width * height);
-  size_t total_height = (height + 1) * num_images;
+  size_t total_height = (height + 1) * num_images - 1;
 
   std::stringstream ss;
   ss << "P3" << std::endl;
@@ -85,10 +87,12 @@ std::string image_PPM(const Tensor& tensor, float v_min, float v_max) {
       }
       ss << std::endl;
     }
-    for (size_t x = 0; x < width; ++x) {
-      ss << 0 << " ";
-      ss << 0 << " ";
-      ss << 0 << " ";
+    if (image != num_images - 1) {
+      for (size_t x = 0; x < width; ++x) {
+        ss << 0 << " ";
+        ss << 0 << " ";
+        ss << 0 << " ";
+      }
     }
     ss << std::endl;
   }

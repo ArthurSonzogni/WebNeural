@@ -49,9 +49,8 @@ TEST(Convolution2D, Convolution2D) {
 
   Model model(&input, &output, examples);
 
-  for (int i = 0; i < 1000; ++i) {
-    model.batch_size = 100;
-    model.Train(0.000001f, 1000);
+  for (int i = 1; i < 100; ++i) {
+    model.Train(0.1f / i, 1000);
 
     // Check for new predictions.
     float error = model.Error();

@@ -1,7 +1,8 @@
 #include "Tensor.hpp"
 #include <algorithm>
-#include <sstream>
 #include <random>
+#include <sstream>
+#include <stdexcept>
 
 Tensor::Tensor() : Tensor({}) {}
 Tensor::Tensor(size_t size) : Tensor(std::vector<size_t>{size}) {}
@@ -110,6 +111,12 @@ float& Tensor::at(size_t x, size_t y) {
 float& Tensor::at(size_t x, size_t y, size_t z) {
   return values[x + sizes[0] * (y + sizes[1] * z)];
 }
+float Tensor::at(size_t x, size_t y) const {
+  return values[x + sizes[0] * y];
+}
+float Tensor::at(size_t x, size_t y, size_t z) const {
+  return values[x + sizes[0] * (y + sizes[1] * z)];
+}
 
 // static
 Tensor Tensor::Merge(std::vector<Tensor> tensors) {
@@ -147,4 +154,38 @@ void Tensor::Clip(const float c) {
 void Tensor::Clip(const float v_min, const float v_max) {
   for (auto& v : values)
     v = std::min(v_max, std::max(v_min, v));
+}
+
+void Tensor::Rescale(const float min, const float max) {
+  float input_min = values[0];
+  float input_max = values[0];
+  for(const auto& v : values) {
+    input_min = std::min(input_min, v);
+    input_max = std::max(input_max, v);
+  }
+
+  for(auto& v : values) {
+    v = (v - input_min) * (max - min) / (input_max - input_min) + min;
+  }
+}
+
+//static
+Tensor Tensor::ConcatenateHorizontal(const Tensor& A, const Tensor& B) {
+  const size_t width_A = A.sizes[0];
+  const size_t width_B = B.sizes[0];
+  const size_t height_A = A.sizes[1];
+  const size_t height_B = B.sizes[1];
+
+  if (height_A != height_B)
+    throw std::invalid_argument("height doesn't match");
+  
+  Tensor ret({width_A + width_B, height_A});
+  for(size_t y = 0; y<height_A; ++y) {
+    size_t x = 0;
+    for(size_t x_a = 0; x_a<width_A; ++x_a)
+      ret.at(x++, y) = A.at(x_a,y);
+    for(size_t x_b = 0; x_b<width_B; ++x_b)
+      ret.at(x++, y) = B.at(x_b,y);
+  }
+  return ret;
 }

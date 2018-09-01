@@ -9,6 +9,8 @@ add_library(main
   LossFunction.hpp
   Model.cpp
   Model.hpp
+  PostUpdateFunction.cpp
+  PostUpdateFunction.hpp
   Tensor.cpp
   Tensor.hpp
   node/BatchNormalization.cpp
@@ -33,12 +35,16 @@ add_library(main
   node/MaxPooling.hpp
   node/Node.cpp
   node/Node.hpp
+  node/Noise.cpp
+  node/Noise.hpp
   node/Relu.cpp
   node/Relu.hpp
   node/Sigmoid.cpp
   node/Sigmoid.hpp
   node/Softmax.cpp
   node/Softmax.hpp
+  node/Tanh.cpp
+  node/Tanh.hpp
   util.cpp
   util.hpp
   util/stable_softmax.cpp
@@ -87,8 +93,13 @@ add_new_test(unit_tests
 )
 
 add_new_test(mnist_tests 
-  test/mnist_test.cpp
+  test/mnist_tests.cpp
 )
+
+add_new_test(gan_tests 
+  test/gan_tests.cpp
+)
+
 
 endif(NOT Web)
 
