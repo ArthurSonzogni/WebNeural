@@ -88,7 +88,7 @@ TEST(GAN, spiral) {
                           generator_examples);
     model_generator.loss_function = LossFunction::WasserStein;
     model_generator.post_update_function = PostUpdateFunction::ClipWeight;
-    model_generator.Train(0.0001f, generator_examples.size());
+    model_generator.Train(0.00005f, generator_examples.size());
     generator_loss = model_generator.LastError();
 
     // ┌───────────────────────┐
@@ -137,7 +137,7 @@ TEST(GAN, spiral) {
     static float seuil = 0;
     if (iteration < seuil)
       continue;
-    seuil = 1.02 * seuil + 5;
+    seuil = 1.05 * seuil + 5;
 
     std::cerr << "seuil = " << seuil << std::endl;
     // ┌───────────────────────┐
