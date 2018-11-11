@@ -1,14 +1,17 @@
 #ifndef POST_UPDATE_FUNCTION_H
 #define POST_UPDATE_FUNCTION_H
 
+#include <functional>
+
 class Model;
+class Node;
 
 namespace PostUpdateFunction {
 
-using F = void(Model*);
+using F = std::function<void(Model*)>;
 
-F None;
-F ClipWeight;
+F None();
+F ClipWeight(Node* begin, Node* end);
 
 }  // namespace PostUpdateFunction
 

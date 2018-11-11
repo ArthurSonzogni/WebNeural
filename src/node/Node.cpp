@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <cmath>
 
-static constexpr float ADAM_b1 = 0.0f;
-static constexpr float ADAM_b2 = 0.95f;
-static constexpr float ADAM_epsilon = 1e-5f;
+static constexpr float ADAM_b1 = 0.f;
+static constexpr float ADAM_b2 = 0.9f;
+static constexpr float ADAM_epsilon = 1e-4f;
 constexpr size_t Node::T;
 
 void Node::Update(size_t batch_size, float lambda) {
@@ -16,7 +16,7 @@ void Node::Update(size_t batch_size, float lambda) {
 
   // Gather params_sensitivity
   Tensor PS = Tensor(params_sensitivity[0].sizes);
-  for (size_t batch = 1; batch < batch_size; ++batch) {
+  for (size_t batch = 0; batch < batch_size; ++batch) {
     PS += params_sensitivity[batch];
     params_sensitivity[batch].Fill(0.f);
   }
@@ -25,16 +25,27 @@ void Node::Update(size_t batch_size, float lambda) {
   const size_t params_size = params.values.size();
   for (size_t p = 0; p < params_size; ++p) {
     // Update first and second order estimate.
-    momentum[p] = ADAM_b1 * momentum[p] + (1.f - ADAM_b1) * PS[p];
+    //momentum[p] = ADAM_b1 * momentum[p] + (1.f - ADAM_b1) * PS[p];
 
     smoothed_squared_gradient[p] = ADAM_b2 * smoothed_squared_gradient[p] +
                                    (1.f - ADAM_b2) * PS[p] * PS[p];
 
     // Correct the bias.
-    const float vt = momentum[p];// * (1.f - pow(ADAM_b1, n));
-    const float mt = smoothed_squared_gradient[p];//: * (1.f - pow(ADAM_b2, n));
+    //const float vt = momentum[p];// * (1.f - pow(ADAM_b1, n));
+    const float mt = smoothed_squared_gradient[p];// * (1.f - pow(ADAM_b2, n));
 
-    params[p] -= lambda * vt / (std::sqrt(mt) + ADAM_epsilon);
+    params[p] -= lambda * PS[p] / (std::sqrt(mt) + ADAM_epsilon);
+    
+
+
+    //if (std::isnan(params[p]))
+      //params[p] = 0.f;
+    //if (std::isnan(momentum[p]))
+      //momentum[p] = 0.f;
+    //if (std::isnan(smoothed_squared_gradient[p]))
+      //smoothed_squared_gradient[p] = 0.f;
+    //if (std::isnan(PS[p]))
+      //PS[p] = 0.f;
   }
 }
 
@@ -124,4 +135,25 @@ void ReverseRange::Apply(void (Node::*f)()) {
       break;
     node = node->previous;
   }
+}
+
+void Node::SerializeParams(std::vector<float>& value) {
+  InitIfNeeded();
+
+  for (auto& p : params.values)
+    value.push_back(p);
+  for (auto& p : smoothed_squared_gradient.values)
+    value.push_back(p);
+  for (auto& p : momentum.values)
+    value.push_back(p);
+}
+
+void Node::DeserializeParams(const std::vector<float>& value, size_t& index) {
+  InitIfNeeded();
+  for (auto& p : params.values)
+    p = value[index++];
+  for (auto& p : smoothed_squared_gradient.values)
+    p = value[index++];
+  for (auto& p : momentum.values)
+    p = value[index++];
 }

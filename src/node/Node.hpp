@@ -6,7 +6,7 @@
 
 class Node {
  public:
-  static constexpr size_t T = 64;
+  static constexpr size_t T = 16;
 
   // Node internal state.
   Tensor params;
@@ -33,6 +33,9 @@ class Node {
   void Clear();
 
   static void Link(Node* previous, Node* next);
+
+  void SerializeParams(std::vector<float>& value);
+  void DeserializeParams(const std::vector<float>& value, size_t& index);
 
  protected:
   void Link(Node* previous);

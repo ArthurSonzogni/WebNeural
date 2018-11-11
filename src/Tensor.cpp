@@ -119,8 +119,8 @@ float Tensor::at(size_t x, size_t y, size_t z) const {
 }
 
 // static
-Tensor Tensor::Merge(std::vector<Tensor> tensors) {
-  size_t dx = std::sqrt(tensors.size());
+Tensor Tensor::Merge(std::vector<Tensor> tensors, int dim_x) {
+  size_t dx = dim_x ? dim_x : std::sqrt(tensors.size());
   size_t dy = (tensors.size()+dx-1) / dx;
   //size_t dx = tensors.size();
   //size_t dy = 1;

@@ -92,21 +92,20 @@ float Model::LastError() {
 }
 
 std::vector<float> Model::SerializeParams() {
-  std::vector<float> ret;
-  Range(input, output).Apply([&ret](Node* node) {
-    for (auto& p : node->params.values)
-      ret.push_back(p);
+  std::vector<float> value;
+  Range(input, output).Apply([&value](Node* node) {
+    node->SerializeParams(value);
   });
-  return ret;
+  return value;
 }
 
 void Model::DeserializeParams(const std::vector<float>& value) {
-  size_t i = 0;
-  Range(input, output).Apply([&value, &i](Node* node) {
-    for (auto& p : node->params.values)
-      p = value[i++];
+  size_t index = 0;
+  Range(input, output).Apply([&value, &index](Node* node) {
+    node->DeserializeParams(value, index);
   });
 }
+
 static std::ifstream::pos_type FileSize(const std::string& filename) {
   return std::ifstream(filename, std::ifstream::ate | std::ifstream::binary)
       .tellg();

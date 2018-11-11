@@ -46,7 +46,7 @@ struct Tensor {
   bool operator==(const Tensor& other) const;
   bool operator!=(const Tensor& other) const;
 
-  static Tensor Merge(std::vector<Tensor> tensors);
+  static Tensor Merge(std::vector<Tensor> tensors, int dim_x = 0);
 };
 
 #endif /* end of include guard: TENSOR_H */

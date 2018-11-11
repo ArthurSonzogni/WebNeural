@@ -63,16 +63,11 @@ void SoftmaxCrossEntropy(const Tensor& target,
 }
 
 void WasserStein(const Tensor& target,
-                  const Tensor& current,
-                  float* error,
-                  Tensor* derivative) {
-  if (target[0] > 0.5f) {
-    *error = +current[0];
-    (*derivative)[0] = +1.f;
-  } else {
-    *error = -current[0];
-    (*derivative)[0] = -1.f;
-  }
+                 const Tensor& current,
+                 float* error,
+                 Tensor* derivative) {
+  *error = target[0] * current[0];
+  (*derivative)[0] = target[0];
 }
 
 }  // namespace LossFunction

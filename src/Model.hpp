@@ -36,7 +36,7 @@ class Model {
   size_t batch_size = 20;
 
   LossFunction::F* loss_function = LossFunction::SquaredDifference;
-  PostUpdateFunction::F* post_update_function = PostUpdateFunction::None;
+  PostUpdateFunction::F post_update_function = PostUpdateFunction::None();
 
  private:
   std::vector<Node*> nodes;  // ]input, output]

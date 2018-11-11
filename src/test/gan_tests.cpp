@@ -87,7 +87,6 @@ TEST(GAN, spiral) {
     Model model_generator(generator_input, discriminator_output,
                           generator_examples);
     model_generator.loss_function = LossFunction::WasserStein;
-    model_generator.post_update_function = PostUpdateFunction::ClipWeight;
     model_generator.Train(0.00005f, generator_examples.size());
     generator_loss = model_generator.LastError();
 
@@ -125,7 +124,8 @@ TEST(GAN, spiral) {
     Model model_discriminator(discriminator_input, discriminator_output,
                               discriminator_examples);
     model_discriminator.loss_function = LossFunction::WasserStein;
-    model_discriminator.post_update_function = PostUpdateFunction::ClipWeight;
+    model_discriminator.post_update_function = PostUpdateFunction::ClipWeight(
+        discriminator_input, discriminator_output);
     model_discriminator.Train(0.001f, discriminator_examples.size());
     discriminator_loss = model_discriminator.LastError();
 

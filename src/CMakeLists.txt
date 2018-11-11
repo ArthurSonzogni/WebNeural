@@ -19,6 +19,8 @@ add_library(main
   node/Bias.hpp
   node/BilinearUpsampling.cpp
   node/BilinearUpsampling.hpp
+  node/Border.cpp
+  node/Border.hpp
   node/Convolution2D.cpp
   node/Convolution2D.hpp
   node/Deconvolution2D.cpp

@@ -40,6 +40,9 @@ class Allocator {
   // Regularisation
   Node* BatchNormalization(Node* input);
 
+  // Helper
+  Node* Border(Node* input, size_t border_size, float value);
+
  private:
   std::vector<std::unique_ptr<Node>> nodes;
 };

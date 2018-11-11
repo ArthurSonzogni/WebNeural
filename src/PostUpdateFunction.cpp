@@ -1,14 +1,18 @@
 #include "PostUpdateFunction.hpp"
+
 #include "Model.hpp"
+#include "node/Node.hpp"
 
 namespace PostUpdateFunction {
 
-  void None(Model*) {}
+F None() {
+  return [](Model*) {};
+}
 
-  void ClipWeight(Model* model) {
-    Range(model->input->next, model->output).Apply([](Node* node) {
-      node->params.Clip(1.0);
-    });
-  }
+F ClipWeight(Node* begin, Node* end) {
+  return [=](Model* model) {
+    Range(begin, end).Apply([](Node* node) { node->params.Clip(2); });
+  };
+}
 
-} // namespace PostUpdateFunction
+}  // namespace PostUpdateFunction

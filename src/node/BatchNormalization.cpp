@@ -27,14 +27,16 @@ void BatchNormalization::Forward(size_t batch_size) {
   X /= total;
   XX /= total;
 
-  float mean = X;
-  inv_dev = 1.0 / std::sqrt(XX - X * X + 1e-8);
+  //float mean = X;
+  inv_dev = 1.0 / std::sqrt(std::abs(XX - X * X) + 1e-4);
 
   for (size_t batch = 0; batch < batch_size; ++batch) {
     auto& I = input[batch]->values;
     auto& O = output[batch].values;
     for (size_t i = 0; i < size; ++i) {
-      O[i] = (I[i] - mean) * inv_dev;
+      //O[i] = (I[i] - mean) * inv_dev;
+      O[i] = I[i] * inv_dev;
+      //(I[i] - mean) * inv_dev;
     }
   }
 }

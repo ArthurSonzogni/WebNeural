@@ -16,7 +16,7 @@ void LeakyRelu::Forward(size_t batch_size) {
 
     const size_t size = I.values.size();
     for (size_t i = 0; i < size; ++i) {
-      O[i] = I[i] > 0.f ? I[i] : 0.2f * I[i];
+      O[i] = I[i] > 0.f ? I[i] : 0.1f * I[i];
     }
   }
 }
@@ -30,7 +30,7 @@ void LeakyRelu::Backward(size_t batch_size) {
 
     const size_t size = I.values.size();
     for (size_t i = 0; i < size; ++i) {
-      IS[i] = I[i] > 0.f ? OS[i] : 0.2f * OS[i];
+      IS[i] = I[i] > 0.f ? OS[i] : 0.1f * OS[i];
     }
   }
 }
