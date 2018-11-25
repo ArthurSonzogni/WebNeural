@@ -80,7 +80,7 @@ function(add_new_test test_name test_files)
     Threads::Threads
   )
   target_compile_definitions(${test_name}
-    PRIVATE MNIST_DATA_LOCATION="${MNIST_DATA_DIR}")
+    PRIVATE MNIST_DATA_LOCATION="${MNIST_FASHION_DATA_DIR}")
   gtest_discover_tests(${test_name})
   add_test(${test_name} ${test_name})
 endfunction(add_new_test)

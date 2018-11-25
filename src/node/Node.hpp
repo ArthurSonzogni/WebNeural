@@ -8,6 +8,9 @@ class Node {
  public:
   static constexpr size_t T = 16;
 
+  Node() = default;
+  virtual ~Node() = default;
+
   // Node internal state.
   Tensor params;
 

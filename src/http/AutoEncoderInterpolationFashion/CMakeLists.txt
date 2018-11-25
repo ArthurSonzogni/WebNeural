@@ -13,7 +13,7 @@ if (Web)
   string(APPEND CMAKE_CXX_FLAGS " --no-heap-copy")
   string(APPEND CMAKE_CXX_FLAGS " --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/save.bin@save.bin")
   string(APPEND CMAKE_CXX_FLAGS " -s EXPORTED_FUNCTIONS='[\"_LastInput\", \"_LastOutput\", \"_Train\", \"_Predict\", \"_LoadPretrainedModel\"]'")
-  string(APPEND CMAKE_CXX_FLAGS " -s EXTRA_EXPORTED_RUNTIME_METHODS='[\"ccall\",\" cwrap\"]'")
+  string(APPEND CMAKE_CXX_FLAGS " -s EXTRA_EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'")
   
   string(APPEND CMAKE_CXX_FLAGS " --preload-file ${MNIST_FASHION_DATA_DIR}/t10k-images-idx3-ubyte@/data/t10k-images-idx3-ubyte")
   #string(APPEND CMAKE_CXX_FLAGS " --preload-file ${MNIST_DATA_DIR}/t10k-labels-idx1-ubyte@/data/t10k-labels-idx1-ubyte")

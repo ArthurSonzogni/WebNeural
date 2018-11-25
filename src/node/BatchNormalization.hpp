@@ -6,6 +6,7 @@
 class BatchNormalization : public Node {
  public:
   BatchNormalization(Node* input);
+  ~BatchNormalization() = default;
   void Forward(size_t batch_size) override;
   void Backward(size_t batch_size) override;
  private:

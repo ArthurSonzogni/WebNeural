@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-static constexpr float ADAM_b1 = 0.f;
+//static constexpr float ADAM_b1 = 0.f;
 static constexpr float ADAM_b2 = 0.9f;
 static constexpr float ADAM_epsilon = 1e-4f;
 constexpr size_t Node::T;

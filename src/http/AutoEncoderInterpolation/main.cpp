@@ -7,8 +7,7 @@
 #include <cstdint>
 #include <iostream>
 
-std::vector<Example> GetExamples(const std::vector<std::vector<float>>& input,
-                                 const std::vector<uint8_t>& output) {
+std::vector<Example> GetExamples(const std::vector<std::vector<float>>& input) {
   std::vector<Example> examples;
   for (size_t i = 0; i < input.size(); ++i) {
     auto input_example = Tensor({27, 27, 1});
@@ -32,112 +31,107 @@ auto mnist_images =
         MNIST_DATA_LOCATION);
 std::vector<Example> training_set =
 #ifndef Web
-    GetExamples(mnist_images.training_images, mnist_images.training_labels);
+    GetExamples(mnist_images.training_images);
 #else
-    GetExamples(mnist_images.test_images, mnist_images.test_labels);
+    GetExamples(mnist_images.test_images);
 #endif
 
-class Demo {
- public:
-  Demo() {
-    auto compress = [&](Node* X) {
-      X = a.Convolution2D(X, {7, 7}, 6, 2);
-      X = a.LeakyRelu(X);
-      X = a.Convolution2D(X, {3, 3}, 16, 2);
-      X = a.LeakyRelu(X);
-      X = a.Convolution2D(X, {3, 3}, 32, 2);
-      X = a.LeakyRelu(X);
-      X = a.Linear(X, {10});
-      X = a.Sigmoid(X);
-      return X;
-    };
+Allocator a;
+auto compress = [](Node* X) {
+  X = a.Convolution2D(X, {7, 7}, 6, 2);
+  X = a.LeakyRelu(X);
 
-    auto decompress = [&](Node* X) {
-      X = a.Linear(X, {2, 2, 32});
-      X = a.Deconvolution2D(X, {3, 3}, 16, 2);
-      X = a.LeakyRelu(X);
-      X = a.Deconvolution2D(X, {3, 3}, 6, 2);
-      X = a.LeakyRelu(X);
-      X = a.Deconvolution2D(X, {7, 7}, 1, 2);
-      X = a.Sigmoid(X);
-      return X;
-    };
+  X = a.Convolution2D(X, {3, 3}, 16, 2);
+  X = a.LeakyRelu(X);
 
-    input = a.Input({27, 27, 1});
-    latent = compress(input);
-    output = decompress(latent);
+  X = a.Convolution2D(X, {3, 3}, 32, 2);
+  X = a.LeakyRelu(X);
 
-    model = std::make_unique<Model>(input, output, training_set);
-  }
-
-  void Train(float lambda, int iterations = 10) {
-    model->Train(lambda, iterations);
-  }
-
-  void Import(Tensor& tensor, double* input) {
-    for (auto& it : tensor.values) {
-      it = *(input++);
-    }
-  }
-
-  void Export(const Tensor& tensor, uint8_t* output) {
-    for (auto& it : tensor.values) {
-      float v = std::max(0.f, std::min(1.f, it));
-      (*output++) = 255 * v;
-      (*output++) = 255 * v;
-      (*output++) = 255 * v;
-      (*output++) = 255;
-    }
-  }
-
-  void Save() { model->SerializeParamsToFile("save.bin"); }
-  void Load() { model->DeserializeParamsFromFile("save.bin"); }
-
-  Allocator a;
-  Node* input;
-  Node* latent;
-  Node* output;
-  std::unique_ptr<Model> model;
+  X = a.Linear(X, {10});
+  X = a.Sigmoid(X);
+  return X;
 };
 
-Demo demo;
+auto decompress = [](Node* X) {
+  X = a.Linear(X, {2, 2, 32});
+  X = a.Deconvolution2D(X, {3, 3}, 16, 2);
+
+  X = a.LeakyRelu(X);
+  X = a.Deconvolution2D(X, {3, 3}, 6, 2);
+
+  X = a.LeakyRelu(X);
+  X = a.Deconvolution2D(X, {7, 7}, 1, 2);
+
+  X = a.Sigmoid(X);
+  return X;
+};
+
+auto input = a.Input({27, 27, 1});
+auto latent = compress(input);
+auto output = decompress(latent);
+
+Model model(input, output, training_set);
+
+void Train(float lambda, int iterations = 10) {
+  model.Train(lambda, iterations);
+}
+
+void Import(Tensor& tensor, double* input) {
+  for (auto& it : tensor.values) {
+    it = *(input++);
+  }
+}
+
+void Export(const Tensor& tensor, uint8_t* output) {
+  for (auto& it : tensor.values) {
+    float v = std::max(0.f, std::min(1.f, it));
+    (*output++) = 255 * v;
+    (*output++) = 255 * v;
+    (*output++) = 255 * v;
+    (*output++) = 255;
+  }
+}
+
+void Save() { model.SerializeParamsToFile("save.bin"); }
+void Load() { model.DeserializeParamsFromFile("save.bin"); }
 
 extern "C" {
 
 float lambda = 0.003f;
 void Train() {
   lambda = std::max(lambda * 0.999f, 0.0001f);
-  demo.Train(lambda, 13);
+  Train(lambda, 13);
 }
 
-void LastInput(uint8_t* input) {
-  demo.Export(demo.input->output[0], input);
+void LastInput(uint8_t* _input) {
+  Export(input->output[0], _input);
 }
 
-void LastOutput(uint8_t* output) {
-  demo.Export(demo.output->output[0], output);
+void LastOutput(uint8_t* _output) {
+  Export(output->output[0], _output);
 }
 
-void Predict(double* input, uint8_t* output) {
-  demo.Import(demo.latent->output[0], input);
-  Range(demo.latent->next, demo.output).Apply([](Node* node) {
+void Predict(double* _input, uint8_t* _output) {
+  Import(latent->output[0], _input);
+  Range(latent->next, output).Apply([](Node* node) {
     node->Forward(1);
   });
-  demo.Export(demo.output->output[0], output);
+  Export(output->output[0], _output);
 }
 
 void LoadPretrainedModel() {
   lambda = 0.0001f;
-  demo.Load();
+  Load();
 }
+
 };
 
 #ifndef Web
 int main(int argc, const char* argv[]) {
-  demo.Load();
-  demo.Train(0.0001f, 6400);
-  std::cout << "error " << demo.model->LastError() << std::endl;
-  demo.Save();
+  Load();
+  Train(0.001f, 640);
+  std::cout << "error " << model.LastError() << std::endl;
+  Save();
   return 0;
 }
 #endif

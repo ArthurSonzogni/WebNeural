@@ -301,16 +301,13 @@ TEST(MNIST, WGAN) {
 
   std::random_device seed;
   std::mt19937 random_generator(seed());
-  std::uniform_real_distribution<float> real_value(1.0f, 1.0f);
-  std::uniform_real_distribution<float> fake_value(-1.0f, -1.f);
 
   // Generate example references.
   std::vector<Example> examples_reference;
   for (size_t i = 0; i < 16; ++i) {
     auto input = Tensor::Random(generator_input->output[0].sizes);
     auto output = Tensor({1});
-    float p = real_value(seed);
-    output.values = {p};
+    output.values = {1.f};
     examples_reference.push_back({input, output});
   }
 
@@ -342,8 +339,7 @@ TEST(MNIST, WGAN) {
       for (size_t i = 0; i < Node::T; ++i) {
         auto input = Tensor::Random(generator_input->output[0].sizes);
         auto output = Tensor({1});
-        float p = real_value(seed);
-        output.values = {p};
+        output.values = {1.f};
         examples.push_back({input, output});
       }
 
@@ -398,16 +394,14 @@ TEST(MNIST, WGAN) {
       // Generate some examples.
       for (auto& input : generated) {
         auto output = Tensor({1});
-        float p = fake_value(seed);
-        output.values = {p};
+        output.values = {-1.f};
         examples.push_back({input, output});
       }
       std::uniform_int_distribution<> random_index(0, training_set.size() - 1);
       for (size_t i = 0; i < std::min(generated.size(), size_t(Node::T)); ++i) {
         auto input = training_set[random_index(random_generator)].input;
         auto output = Tensor({1});
-        float p = real_value(seed);
-        output.values = {p};
+        output.values = {1.f};
         examples.push_back({input, output});
       }
 
@@ -440,13 +434,13 @@ TEST(MNIST, WCGAN) {
   // float keep_probability = 0.;
   Allocator a;
   auto generator = [&](Node* X) {
-    X = a.Linear(X, {4, 4, 16});
+    X = a.Linear(X, {4, 4, 32});
     X = a.LeakyRelu(X);
 
-    X = a.Deconvolution2D(X, {5, 5}, 8, 2);
+    X = a.Deconvolution2D(X, {5, 5}, 16, 2);
     X = a.LeakyRelu(X);
 
-    X = a.Deconvolution2D(X, {5, 5}, 8, 2);
+    X = a.Deconvolution2D(X, {5, 5}, 16, 2);
     X = a.LeakyRelu(X);
 
     X = a.Deconvolution2D(X, {5, 5}, 1, 1);
@@ -455,20 +449,20 @@ TEST(MNIST, WCGAN) {
   };
 
   auto discriminator = [&](Node* X) {
-    X = a.Convolution2D(X, {5, 5}, 8, 1);
-    X = a.LeakyRelu(X);
-
-    X = a.Convolution2D(X, {5, 5}, 8, 2);
+    X = a.Convolution2D(X, {5, 5}, 16, 1);
     X = a.LeakyRelu(X);
 
     X = a.Convolution2D(X, {5, 5}, 16, 2);
+    X = a.LeakyRelu(X);
+
+    X = a.Convolution2D(X, {5, 5}, 32, 2);
     X = a.LeakyRelu(X);
 
     X = a.Linear(X, {1, 1, 1});
     return X;
   };
 
-  auto generator_input = a.Input({10});
+  auto generator_input = a.Input({20});
   auto generator_output = generator(generator_input);
 
   auto discriminator_input = a.Input({29, 29, 1});
@@ -478,22 +472,19 @@ TEST(MNIST, WCGAN) {
 
   std::random_device seed;
   std::mt19937 random_generator(seed());
-  std::uniform_real_distribution<float> real_value(1.0f, 1.0f);
-  std::uniform_real_distribution<float> fake_value(-1.0f, -1.f);
 
   // Generate example references.
   std::vector<Example> examples_reference;
   for (size_t i = 0; i < 16*9; ++i) {
     auto input = Tensor::Random(generator_input->output[0].sizes);
     auto output = Tensor({1});
-    float p = real_value(seed);
-    output.values = {p};
+    output.values = {1.0};
     examples_reference.push_back({input, output});
   }
 
   std::vector<Example> examples;
   for (size_t iteration = 1; iteration < 10000; ++iteration) {
-    float learning_rate = 0.01f / std::pow(iteration, 1.0 / 7.0);
+    float learning_rate = 0.003f / std::pow(iteration, 1.0 / 7.0);
 
     std::vector<Tensor> generated;
     float generative_error = 0.f;
@@ -522,8 +513,7 @@ TEST(MNIST, WCGAN) {
       for (size_t i = 0; i < 16; ++i) {
         auto input = Tensor::Random(generator_input->output[0].sizes);
         auto output = Tensor({1});
-        float p = real_value(seed);
-        output.values = {p};
+        output.values = {1.0};
         examples.push_back({input, output});
       }
 
@@ -592,16 +582,14 @@ TEST(MNIST, WCGAN) {
       // Generate some examples.
       for (auto& input : generated) {
         auto output = Tensor({1});
-        float p = fake_value(seed);
-        output.values = {p};
+        output.values = {-1.f};
         examples.push_back({input, output});
       }
       std::uniform_int_distribution<> random_index(0, training_set.size() - 1);
       for (size_t i = 0; i < std::min(generated.size(), size_t(Node::T)); ++i) {
         auto input = training_set[random_index(random_generator)].input;
         auto output = Tensor({1});
-        float p = real_value(seed);
-        output.values = {p};
+        output.values = {1.0};
         examples.push_back({input, output});
       }
 

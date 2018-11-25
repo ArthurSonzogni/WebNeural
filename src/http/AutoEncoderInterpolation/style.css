@@ -5,6 +5,7 @@ body {
 #page {
   max-width: 750px;
   margin:auto;
+  padding:20px;
 }
 
 h1 {
@@ -122,3 +123,25 @@ button:active {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
+
+#parent_button {
+  position:absolute;
+  left:0;
+  top:0;
+  color:black;
+  text-decoration:none;
+  margin:10px;
+  padding: 5px;
+  background-color: white;
+  border: 2px solid black;
+  border-radius: 5px;
+  font-size: 20px;
+}
+
+#parent_button:hover {
+  background-color: #EEF;
+}
+
+#parent_button:active {
+  background-color: #AAF;
+}

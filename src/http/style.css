@@ -1,0 +1,83 @@
+body {
+  background-color:#EEE;
+  font-size:16px;
+}
+
+#page {
+  max-width: 1200px;
+  margin:auto;
+  padding:20px;
+}
+
+h1 {
+  font-weight:100;
+  margin-bottom: 30px;
+  margin-top: 70px;
+}
+
+h3 {
+  font-weight:100;
+  margin-bottom: 30px;
+  margin-top: 10;
+}
+
+#parent_button {
+  position:absolute;
+  left:0;
+  top:0;
+  color:black;
+  text-decoration:none;
+  margin:10px;
+  padding: 5px;
+  background-color: white;
+  border: 2px solid black;
+  border-radius: 5px;
+  font-size: 20px;
+}
+
+#parent_button:hover {
+  background-color: #EEF;
+}
+
+#parent_button:active {
+  background-color: #AAF;
+}
+
+.demo {
+}
+
+body {
+  background: #e2e1e0;
+  text-align: center;
+}
+
+.demo {
+  text-decoration:none;
+  background: #fff; border-radius: 2px;
+  display: inline-block;
+  height: 300px;
+  margin: 1rem;
+  position: relative;
+  width: 450px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+  transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+  display:inline-block;
+}
+.demo:hover {
+  box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+}
+
+.title {
+  background-color:rgba(0,0,200,0.2);
+  padding:20px;
+  color:black;
+  font-weight:500;
+  font-size:24px;
+}
+
+.demo_figure {
+  margin:10px;
+  padding:10px;
+  width:80%;
+  height:80%;
+}

@@ -12,20 +12,18 @@ if (Web)
   string(APPEND CMAKE_CXX_FLAGS " --closure 1")
   string(APPEND CMAKE_CXX_FLAGS " --no-heap-copy")
   string(APPEND CMAKE_CXX_FLAGS " --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/save.bin@save.bin")
-  string(APPEND CMAKE_CXX_FLAGS " -s EXPORTED_FUNCTIONS='[\"_LastInput\", \"_LastOutput\", \"_Train\", \"_Predict\", \"_LoadPretrainedModel\"]'")
+ string(APPEND CMAKE_CXX_FLAGS " -s EXPORTED_FUNCTIONS='[\"_Predict\", \"_LoadPretrainedModel\", \"_Train\", \"_ResetModelWeight\"]'")
   string(APPEND CMAKE_CXX_FLAGS " -s EXTRA_EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'")
   
   string(APPEND CMAKE_CXX_FLAGS " --preload-file ${MNIST_DATA_DIR}/t10k-images-idx3-ubyte@/data/t10k-images-idx3-ubyte")
-  #string(APPEND CMAKE_CXX_FLAGS " --preload-file ${MNIST_DATA_DIR}/t10k-labels-idx1-ubyte@/data/t10k-labels-idx1-ubyte")
   #string(APPEND CMAKE_CXX_FLAGS " --preload-file ${MNIST_DATA_DIR}/train-images-idx3-ubyte@/data/train-images-idx3-ubyte")
-  #string(APPEND CMAKE_CXX_FLAGS " --preload-file ${MNIST_DATA_DIR}/train-labels-idx1-ubyte@/data/train-labels-idx1-ubyte")
   #string(APPEND CMAKE_CXX_FLAGS " --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/empty@/data/t10k-images-idx3-ubyte")
-  string(APPEND CMAKE_CXX_FLAGS " --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/empty@/data/t10k-labels-idx1-ubyte")
   string(APPEND CMAKE_CXX_FLAGS " --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/empty@/data/train-images-idx3-ubyte")
-  string(APPEND CMAKE_CXX_FLAGS " --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/empty@/data/train-labels-idx1-ubyte")
 
   file(READ style.css style)
   file(READ main.js script)
+  file(READ snippet/headercpp.html headercpp)
+  file(READ snippet/networkcpp.html networkcpp)
 
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/figure.svg
@@ -37,19 +35,19 @@ if (Web)
     ${CMAKE_CURRENT_BINARY_DIR}/index.html
   )
 
-  add_executable(main.js
+  add_executable(wgan_interpolation.js
     main.cpp
   )
 
-  target_link_libraries(main.js
+  target_link_libraries(wgan_interpolation.js
     main
   )
 
-target_compile_definitions(main.js PRIVATE Web="${Web}")
-target_compile_definitions(main.js PRIVATE MNIST_DATA_LOCATION="./data/")
+target_compile_definitions(wgan_interpolation.js PRIVATE Web="${Web}")
+target_compile_definitions(wgan_interpolation.js PRIVATE MNIST_DATA_LOCATION="./data/")
 else (Web)
-  add_executable(train main.cpp)
-  target_link_libraries(train main)
-  target_compile_definitions(train
+  add_executable(train_wgan_interpolation main.cpp)
+  target_link_libraries(train_wgan_interpolation main)
+  target_compile_definitions(train_wgan_interpolation
     PRIVATE MNIST_DATA_LOCATION="${MNIST_DATA_DIR}")
 endif(Web)

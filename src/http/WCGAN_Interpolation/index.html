@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+
+    @google-analytics@
+
+    <meta charset="utf-8">
+    <title>WebNeural: Generative Adversarial Network (WCGAN)</title>
+    <meta name="description" content="MNIST interpolation in latent space.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+      @style@
+    </style>
+  </head>
+  <body>
+
+    <!-- Loading page -->
+    <div id="loading" class="vbox">
+      <div class="flex"></div>
+      <div class="hbox">
+        <div class="flex"></div>
+        <div class="loader"></div></h1>
+        <div class="flex"></div>
+      </div>
+      <div class="flex"></div>
+    </div>
+
+    <!-- Active page -->
+    <div id="page">
+
+      <a id="parent_button" href="..">Parent</a>
+
+      <h1> Convolutional Generative Adversarial Network </h1>
+      <img src="figure.svg" width="100%"></img>
+      
+      <h1> Latent space 🡒 Image </h1>
+      <div class="hbox flexwrap aligncenter">
+        <div class="vbox aligncenter">
+
+          <!-- Image A-->
+          <div class="hbox aligncenter">
+            <div class="label">A</div>
+            <div id="container_a" class="hbox flex sliderContainer"></div>
+            <canvas id="image_a"></canvas>
+          </div>
+
+          <div style="height:5px"></div>
+
+          <!-- Image B-->
+          <div class="hbox aligncenter">
+            <div class="label">B</div>
+            <div id="container_b" class="hbox flex sliderContainer"></div>
+            <canvas id="image_b"></canvas>
+          </div>
+        
+        </div>
+
+        <div style="width:20px;"></div>
+
+        <!-- Interpolation A & B-->
+        <div class="hbox">
+          <div class="vbox">
+            <div>A</div>
+            <div class="flex"></div>
+            <div>B</div>
+          </div>
+          <div class="image_container" id="container_c"></div>
+          <canvas id="image_c"></canvas>
+        </div>
+      </div>
+
+      <h1> Train in the web browser (slow) </h1>
+      <div class="hbox">
+        <button onclick="ResetModel()" id="reset_model">
+          Reset Model.
+        </button>
+
+        <button onclick="ToogleTraining()" id="toogle_training">
+          Start training
+        </button>
+
+        <button onclick="LoadOptimizedParams()" id="load_pretrained_model">
+          Load trained model
+        </button>
+
+        <div class="flex"></div>
+
+      </div>
+
+      <h1> Example training (video)</h1>
+      <iframe
+        width="560"
+        height="315"
+        src="https://www.youtube.com/embed/dnO5o2quzY8"
+        frameborder="0" 
+        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+      </iframe>
+
+      <h1> Network C++ </h1>
+      <h3> Headers </h3>
+      @headercpp@
+      <h3> Network </h3>
+      @networkcpp@
+    </div>
+
+    <script>
+      @script@ 
+    </script>
+    <script src="wgan_interpolation.js"></script>
+  </body>
+</html>
