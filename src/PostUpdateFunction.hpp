@@ -12,6 +12,7 @@ using F = std::function<void(Model*)>;
 
 F None();
 F ClipWeight(Node* begin, Node* end);
+F GradientPenalty(Node* begin, Node* end, float penalty);
 
 }  // namespace PostUpdateFunction
 

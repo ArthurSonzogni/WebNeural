@@ -6,6 +6,7 @@
 
 class Allocator {
  public:
+  Allocator();
 
   // Input
   Node* Input(const std::vector<size_t>& size);

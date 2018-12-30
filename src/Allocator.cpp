@@ -17,6 +17,8 @@
 #include "node/Softmax.hpp"
 #include "node/Tanh.hpp"
 
+Allocator::Allocator() = default;
+
 Node* Allocator::BatchNormalization(Node* input) {
   nodes.emplace_back(new ::BatchNormalization(input));
   return nodes.back().get();

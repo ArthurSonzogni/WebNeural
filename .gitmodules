@@ -1,3 +1,6 @@
 [submodule "third_party/mnist-fashion"]
 	path = third_party/mnist-fashion
 	url = https://github.com/ArthurSonzogni/mnist-fashion
+[submodule "third_party/cifar-10"]
+	path = third_party/cifar-10
+	url = https://github.com/wichtounet/cifar-10

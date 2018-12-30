@@ -6,7 +6,7 @@
 
 class Node {
  public:
-  static constexpr size_t T = 16;
+  static constexpr size_t T = 64;
 
   Node() = default;
   virtual ~Node() = default;

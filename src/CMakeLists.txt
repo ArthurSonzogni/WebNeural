@@ -1,6 +1,8 @@
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(main
+  algorithm/WCGAN.hpp
+  algorithm/WCGAN.cpp
   Allocator.cpp
   Allocator.hpp
   Image.cpp
@@ -51,17 +53,32 @@ add_library(main
   util.hpp
   util/stable_softmax.cpp
   util/stable_softmax.hpp
+  ../third_party/stb_image/header.hpp
+  ../third_party/stb_image/implementation.cpp
 )
-#target_link_libraries(main profiler)
+
+# ┌─────────────────────────────────────────────────┐
+# │ ThinLTO                                         │
+# └─────────────────────────────────────────────────┘
+include(CheckIPOSupported)
+check_ipo_supported()
+set_target_properties(main PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+add_library(sse4_1 INTERFACE IMPORTED)
+if(MSVC)
+    target_compile_options(sse4_1 INTERFACE /arch:SSE4.1)
+else()
+    target_compile_options(sse4_1 INTERFACE -msse4.1)
+endif()
 
 # ┌─────────────────────────────────────────────────┐
 # │ Test                                            │
 # └─────────────────────────────────────────────────┘
 
 if (NOT Web)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-no-as-needed,-lprofiler")
-  SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
-  SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
+  #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-no-as-needed,-lprofiler")
+  #SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
+  #SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
 endif()
 
 if (NOT Web)
@@ -79,8 +96,10 @@ function(add_new_test test_name test_files)
     ${GTEST_BOTH_LIBRARIES}
     Threads::Threads
   )
-  target_compile_definitions(${test_name}
-    PRIVATE MNIST_DATA_LOCATION="${MNIST_FASHION_DATA_DIR}")
+  target_compile_definitions(${test_name} PRIVATE MNIST_DATA_LOCATION="${MNIST_DATA_DIR}")
+  target_compile_definitions(${test_name} PRIVATE MNIST_FASHION_DATA_LOCATION="${MNIST_FASHION_DATA_DIR}")
+  target_compile_definitions(${test_name} PRIVATE CIFAR_DATA_LOCATION="${CIFAR_DATA_DIR}")
+  set_target_properties(main PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
   gtest_discover_tests(${test_name})
   add_test(${test_name} ${test_name})
 endfunction(add_new_test)
@@ -100,6 +119,10 @@ add_new_test(mnist_tests
 
 add_new_test(gan_tests 
   test/gan_tests.cpp
+)
+
+add_new_test(wcgan_test 
+  algorithm/WCGAN_test.cpp
 )
 
 

@@ -1,6 +1,6 @@
 # Note: # pip install cmake
 cmake_minimum_required(VERSION 3.10)
-project(WebNeural)
+project(WebNeural LANGUAGES CXX)
 
 # ┌─────────────────────────────────────────────────┐
 # │ Detect emscripten                               │
@@ -56,6 +56,11 @@ if(NOT MNIST_FOUND)
      git submodule update")
  endif(NOT MNIST_FOUND)
 include_directories(${MNIST_INCLUDE_DIR})
+
+# ┌─────────────────────────────────────────────────┐
+# │ CIFAR-10 reader                                 │
+# └─────────────────────────────────────────────────┘
+include_directories("./third_party/cifar-10/include")
 
 # ┌─────────────────────────────────────────────────┐
 # │ Include the source                              │

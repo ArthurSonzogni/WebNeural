@@ -125,15 +125,18 @@ Tensor Tensor::Merge(std::vector<Tensor> tensors, int dim_x) {
   //size_t dx = tensors.size();
   //size_t dy = 1;
   size_t width = tensors[0].sizes[0];
-  size_t height = tensors[0].sizes.size() > 2 ? tensors[0].sizes[1] : 1;
-  Tensor merge({width * dx, height * dy, 1});
+  size_t height = tensors[0].sizes.size() >= 2 ? tensors[0].sizes[1] : 1;
+  size_t component = tensors[0].sizes.size() >= 3 ? tensors[0].sizes[2] : 1;
+  Tensor merge({width * dx, height * dy, component});
 
   size_t i_dx = 0;
   size_t i_dy = 0;
   for (auto& t : tensors) {
-    for (size_t y = 0; y < height; ++y) {
-      for (size_t x = 0; x < width; ++x) {
-        merge.at(x + width * i_dx, y + height * i_dy) = t.at(x,y);
+    for (size_t c = 0; c < component; ++c) {
+      for (size_t y = 0; y < height; ++y) {
+        for (size_t x = 0; x < width; ++x) {
+          merge.at(x + width * i_dx, y + height * i_dy, c) = t.at(x,y,c);
+        }
       }
     }
 
