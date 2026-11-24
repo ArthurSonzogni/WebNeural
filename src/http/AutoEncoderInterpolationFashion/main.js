@@ -210,6 +210,14 @@ function RandomizeB() {
   UpdateImages();
 }
 
+function ResetModel() {
+  ResetModelWeight();
+  train_steps = 0;
+  SetTrainStatus("Weights reset (untrained)");
+  TrainJS();
+  SampleGallery();
+}
+
 function LoadOptimizedParams() {
   LoadPretrainedModel();
   train_steps = 0;
@@ -219,7 +227,7 @@ function LoadOptimizedParams() {
 }
 
 let latent, input, output;
-let Train, Predict, LastInput, LastOutput, LoadPretrainedModel;
+let Train, Predict, LastInput, LastOutput, LoadPretrainedModel, ResetModelWeight;
 
 Module.onRuntimeInitialized = function() {
   Predict = Module.cwrap('Predict', 'void', ['number', 'number']);
@@ -227,6 +235,7 @@ Module.onRuntimeInitialized = function() {
   LastInput = Module.cwrap('LastInput', 'void', ['number']);
   LastOutput = Module.cwrap('LastOutput', 'void', ['number']);
   LoadPretrainedModel = Module.cwrap('LoadPretrainedModel', 'void', []);
+  ResetModelWeight = Module.cwrap('ResetModelWeight', 'void', []);
 
   input = CreateImageArray(27 * 27 * 4);
   output = CreateImageArray(27 * 27 * 4);

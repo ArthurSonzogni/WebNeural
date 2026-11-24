@@ -76,6 +76,7 @@ auto latent = compress(input);
 auto output = decompress(latent);
 
 Model model(input, output, training_set);
+std::vector<float> initial_model = model.SerializeParams();
 
 void Train(float lambda, int iterations = 10) {
   model.loss_function = LossFunction::BinaryCrossEntropy;
@@ -129,6 +130,11 @@ void Predict(double* _input, uint8_t* _output) {
 void LoadPretrainedModel() {
   lambda = 0.0001f;
   Load();
+}
+
+void ResetModelWeight() {
+  model.DeserializeParams(initial_model);
+  lambda = 0.003f;
 }
 
 };

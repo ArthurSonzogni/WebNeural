@@ -35,7 +35,7 @@ if (Web)
     "SHELL:--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/empty@/data/t10k-labels-idx1-ubyte"
     "SHELL:--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/empty@/data/train-images-idx3-ubyte"
     "SHELL:--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/empty@/data/train-labels-idx1-ubyte"
-    "-sEXPORTED_FUNCTIONS=_malloc,_LastInput,_LastOutput,_Train,_Predict,_LoadPretrainedModel"
+    "-sEXPORTED_FUNCTIONS=_malloc,_LastInput,_LastOutput,_Train,_Predict,_LoadPretrainedModel,_ResetModelWeight"
     "-sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8,HEAPF64"
   )
 
