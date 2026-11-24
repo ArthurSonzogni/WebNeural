@@ -4,7 +4,6 @@
 #include <cmath>
 #include <stdexcept>
 
-static constexpr float ADAM_b1 = 0.9f;
 static constexpr float ADAM_b2 = 0.99f;
 static constexpr float ADAM_epsilon = 1e-8f;
 constexpr size_t Node::T;
@@ -30,7 +29,9 @@ void Node::Update(size_t batch_size, float lambda) {
     return;
 
   const float inv_batch = 1.f / static_cast<float>(batch_size);
-  const float corr1 = 1.f / (1.f - std::pow(ADAM_b1, static_cast<float>(n)));
+  const float b1 = beta1;
+  const float corr1 =
+      b1 > 0.f ? 1.f / (1.f - std::pow(b1, static_cast<float>(n))) : 1.f;
   const float corr2 = 1.f / (1.f - std::pow(ADAM_b2, static_cast<float>(n)));
   float* __restrict__ p_ptr = params.values.data();
   float* __restrict__ m_ptr = momentum.values.data();
@@ -42,7 +43,7 @@ void Node::Update(size_t batch_size, float lambda) {
     for (size_t p = 0; p < params_size; ++p) {
       const float g = ps_ptr[p] * inv_batch;
       ps_ptr[p] = 0.f;
-      const float m = ADAM_b1 * m_ptr[p] + (1.f - ADAM_b1) * g;
+      const float m = b1 * m_ptr[p] + (1.f - b1) * g;
       const float v = ADAM_b2 * ssg_ptr[p] + (1.f - ADAM_b2) * g * g;
       m_ptr[p] = m;
       ssg_ptr[p] = v;
@@ -63,11 +64,11 @@ void Node::Update(size_t batch_size, float lambda) {
     }
   }
 
-  // Full Adam update with bias correction.
+  // Adam (beta1 > 0) or RMSProp (beta1 == 0) update with bias correction.
   #pragma omp parallel for if(params_size >= 4096)
   for (size_t p = 0; p < params_size; ++p) {
     const float g = ps_buf[p] * inv_batch;
-    const float m = ADAM_b1 * m_ptr[p] + (1.f - ADAM_b1) * g;
+    const float m = b1 * m_ptr[p] + (1.f - b1) * g;
     const float v = ADAM_b2 * ssg_ptr[p] + (1.f - ADAM_b2) * g * g;
     m_ptr[p] = m;
     ssg_ptr[p] = v;

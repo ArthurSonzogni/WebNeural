@@ -9,9 +9,9 @@ F None() {
   return [](Model*) {};
 }
 
-F ClipWeight(Node* begin, Node* end) {
+F ClipWeight(Node* begin, Node* end, float c) {
   return [=](Model* model) {
-    Range(begin, end).Apply([](Node* node) { node->params.Clip(2); });
+    Range(begin, end).Apply([=](Node* node) { node->params.Clip(c); });
   };
 }
 

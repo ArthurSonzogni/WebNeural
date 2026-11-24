@@ -9,11 +9,17 @@ class BatchNormalization : public Node {
   ~BatchNormalization() = default;
   void Forward(size_t batch_size) override;
   void Backward(size_t batch_size) override;
+  void SerializeParams(std::vector<float>& value) override;
+  void DeserializeParams(const std::vector<float>& value,
+                         size_t& index) override;
  private:
-  float mean = 0.f;
-  float inv_dev = 1.f;
-  float running_mean = 0.f;
-  float running_var = 1.f;
+  size_t channels = 1;
+  size_t spatial_size = 1;
+  std::vector<float> mean;
+  std::vector<float> inv_dev;
+  std::vector<float> running_mean;
+  std::vector<float> running_var;
+  std::vector<Tensor> x_hat;
   bool has_running_stats = false;
 };
 

@@ -32,14 +32,15 @@ class Node {
 
   bool locked = false;  // Do not update.
   bool training = true;
+  float beta1 = 0.9f;
   void Lock() { locked = true; }
   void Unlock() { locked = false; }
   void Clear();
 
   static void Link(Node* previous, Node* next);
 
-  void SerializeParams(std::vector<float>& value);
-  void DeserializeParams(const std::vector<float>& value, size_t& index);
+  virtual void SerializeParams(std::vector<float>& value);
+  virtual void DeserializeParams(const std::vector<float>& value, size_t& index);
 
  protected:
   void Link(Node* previous);
