@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-
     @google-analytics@
 
     <meta charset="utf-8">
-    <title>WebNeural: Activity list</title>
-    <meta name="description" content="WebNeural C++. Deep learning activities">
+    <title>WebNeural: Interactive Deep Learning Demos</title>
+    <meta name="description" content="WebNeural C++ neural networks running in the browser via WebAssembly.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <style>
       @style@
@@ -14,21 +13,47 @@
   </head>
   <body>
     <div id="page">
+      <div class="top-bar">
+        <a id="parent_button" href="..">&larr; Parent</a>
+        <span class="badge">C++14 &rarr; WebAssembly</span>
+      </div>
 
-      <a id="parent_button" href="..">Parent</a>
+      <h1>WebNeural</h1>
+      <p class="subtitle">
+        Convolutional neural networks built from scratch in C++ and running interactively in your browser.
+      </p>
 
-      <h1>WebNeural: Activity index</h1>
+      <div class="grid">
+        <a class="demo" href="./AutoEncoderInterpolation/index.html">
+          <div class="demo-header">
+            <div class="title">AutoEncoder (MNIST)</div>
+            <div class="desc">Compress &amp; reconstruct handwritten digits through a 10D latent space.</div>
+          </div>
+          <div class="demo-body">
+            <img class="demo_figure" src="./AutoEncoderInterpolation/figure.svg" alt="MNIST AutoEncoder">
+          </div>
+        </a>
 
-      <a class="demo" href="./AutoEncoderInterpolation/index.html">
-        <div class="title"> Auto Encoder </div>
-        <img class="demo_figure" src="./AutoEncoderInterpolation/figure.svg"></img>
-      </a>
+        <a class="demo" href="./AutoEncoderInterpolationFashion/index.html">
+          <div class="demo-header">
+            <div class="title">AutoEncoder (Fashion-MNIST)</div>
+            <div class="desc">Compress &amp; morph clothing items in a 10D latent space.</div>
+          </div>
+          <div class="demo-body">
+            <img class="demo_figure" src="./AutoEncoderInterpolationFashion/figure.svg" alt="Fashion-MNIST AutoEncoder">
+          </div>
+        </a>
 
-      <a class="demo" href="./WCGAN_Interpolation/index.html">
-        <div class="title"> Generative Adversarial network (GAN) </div>
-        <img class="demo_figure" src="./WCGAN_Interpolation/figure.svg"></img>
-      </a>
-
+        <a class="demo" href="./WCGAN_Interpolation/index.html">
+          <div class="demo-header">
+            <div class="title">Generative Adversarial Network (DCGAN)</div>
+            <div class="desc">Generate handwritten digits from scratch and morph between latent vectors.</div>
+          </div>
+          <div class="demo-body">
+            <img class="demo_figure" src="./WCGAN_Interpolation/figure.svg" alt="MNIST DCGAN">
+          </div>
+        </a>
+      </div>
     </div>
   </body>
 </html>

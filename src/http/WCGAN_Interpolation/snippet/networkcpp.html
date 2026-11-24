@@ -1,30 +1,32 @@
-<pre style="background-color:#121212;padding:20px;box-shadow: inset 0px 0px 17px -2px rgba(0,0,0,1);font-size:16px">
-<span><font color="#FF8700">auto</font></span><span><font color="#D0D0D0"> generator = [](Node* X) {                                                 </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">Linear</font></span><span><font color="#D0D0D0">(X, {</font></span><span><font color="#AF5FFF">4</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">4</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">16</font></span><span><font color="#D0D0D0">});                                                 </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">LeakyRelu</font></span><span><font color="#D0D0D0">(X);                                                          </font></span>
-<span><font color="#D0D0D0">                                                                               </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">Deconvolution2D</font></span><span><font color="#D0D0D0">(X, {</font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">}, </font></span><span><font color="#AF5FFF">8</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">2</font></span><span><font color="#D0D0D0">);                                      </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">LeakyRelu</font></span><span><font color="#D0D0D0">(X);                                                          </font></span>
-<span><font color="#D0D0D0">                                                                               </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">Deconvolution2D</font></span><span><font color="#D0D0D0">(X, {</font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">}, </font></span><span><font color="#AF5FFF">8</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">2</font></span><span><font color="#D0D0D0">);                                      </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">LeakyRelu</font></span><span><font color="#D0D0D0">(X);                                                          </font></span>
-<span><font color="#D0D0D0">                                                                               </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">Deconvolution2D</font></span><span><font color="#D0D0D0">(X, {</font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">}, </font></span><span><font color="#AF5FFF">1</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">1</font></span><span><font color="#D0D0D0">);                                      </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">Sigmoid</font></span><span><font color="#D0D0D0">(X);                                                            </font></span>
-<span><font color="#D0D0D0">  </font></span><span><font color="#D7005F"><b>return</b></font></span><span><font color="#D0D0D0"> X;                                                                    </font></span>
-<span><font color="#D0D0D0">};                                                                             </font></span>
-<span><font color="#D0D0D0">                                                                               </font></span>
-<span><font color="#FF8700">auto</font></span><span><font color="#D0D0D0"> discriminator = [](Node* X) {                                             </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">Convolution2D</font></span><span><font color="#D0D0D0">(X, {</font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">}, </font></span><span><font color="#AF5FFF">8</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">1</font></span><span><font color="#D0D0D0">);                                        </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">LeakyRelu</font></span><span><font color="#D0D0D0">(X);                                                          </font></span>
-<span><font color="#D0D0D0">                                                                               </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">Convolution2D</font></span><span><font color="#D0D0D0">(X, {</font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">}, </font></span><span><font color="#AF5FFF">8</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">2</font></span><span><font color="#D0D0D0">);                                        </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">LeakyRelu</font></span><span><font color="#D0D0D0">(X);                                                          </font></span>
-<span><font color="#D0D0D0">                                                                               </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">Convolution2D</font></span><span><font color="#D0D0D0">(X, {</font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">5</font></span><span><font color="#D0D0D0">}, </font></span><span><font color="#AF5FFF">16</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">2</font></span><span><font color="#D0D0D0">);                                       </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">LeakyRelu</font></span><span><font color="#D0D0D0">(X);                                                          </font></span>
-<span><font color="#D0D0D0">                                                                               </font></span>
-<span><font color="#D0D0D0">  X = a.</font></span><span><font color="#87FF00">Linear</font></span><span><font color="#D0D0D0">(X, {</font></span><span><font color="#AF5FFF">1</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">1</font></span><span><font color="#D0D0D0">, </font></span><span><font color="#AF5FFF">1</font></span><span><font color="#D0D0D0">});                                                  </font></span>
-<span><font color="#D0D0D0">  </font></span><span><font color="#D7005F"><b>return</b></font></span><span><font color="#D0D0D0"> X;                                                                    </font></span>
-<span><font color="#D0D0D0">};                                                                             </font></span>
-</pre>
+<pre style="background-color:#12151f;padding:20px;font-size:14px;line-height:1.5;color:#d8dee9;"><code><span style="color:#ff9e64">auto</span> generator = [](Node* X) {
+  X = a.<span style="color:#9ece6a">Linear</span>(X, {<span style="color:#bb9af7">5</span>, <span style="color:#bb9af7">5</span>, <span style="color:#bb9af7">32</span>});
+  X = a.<span style="color:#9ece6a">BatchNormalization</span>(X);
+  X = a.<span style="color:#9ece6a">LeakyRelu</span>(X);
+
+  X = a.<span style="color:#9ece6a">Deconvolution2D</span>(X, {<span style="color:#bb9af7">4</span>, <span style="color:#bb9af7">4</span>}, <span style="color:#bb9af7">24</span>, <span style="color:#bb9af7">2</span>);  <span style="color:#565f89">// 12x12x24</span>
+  X = a.<span style="color:#9ece6a">BatchNormalization</span>(X);
+  X = a.<span style="color:#9ece6a">LeakyRelu</span>(X);
+
+  X = a.<span style="color:#9ece6a">Deconvolution2D</span>(X, {<span style="color:#bb9af7">4</span>, <span style="color:#bb9af7">4</span>}, <span style="color:#bb9af7">16</span>, <span style="color:#bb9af7">2</span>);  <span style="color:#565f89">// 26x26x16</span>
+  X = a.<span style="color:#9ece6a">BatchNormalization</span>(X);
+  X = a.<span style="color:#9ece6a">LeakyRelu</span>(X);
+
+  X = a.<span style="color:#9ece6a">Deconvolution2D</span>(X, {<span style="color:#bb9af7">4</span>, <span style="color:#bb9af7">4</span>}, <span style="color:#bb9af7">1</span>, <span style="color:#bb9af7">1</span>);   <span style="color:#565f89">// 29x29x1</span>
+  X = a.<span style="color:#9ece6a">Sigmoid</span>(X);
+  <span style="color:#f7768e">return</span> X;
+};
+
+<span style="color:#ff9e64">auto</span> discriminator = [](Node* X) {
+  X = a.<span style="color:#9ece6a">Convolution2D</span>(X, {<span style="color:#bb9af7">4</span>, <span style="color:#bb9af7">4</span>}, <span style="color:#bb9af7">16</span>, <span style="color:#bb9af7">1</span>);    <span style="color:#565f89">// 26x26x16</span>
+  X = a.<span style="color:#9ece6a">LeakyRelu</span>(X);
+
+  X = a.<span style="color:#9ece6a">Convolution2D</span>(X, {<span style="color:#bb9af7">4</span>, <span style="color:#bb9af7">4</span>}, <span style="color:#bb9af7">24</span>, <span style="color:#bb9af7">2</span>);    <span style="color:#565f89">// 12x12x24</span>
+  X = a.<span style="color:#9ece6a">LeakyRelu</span>(X);
+
+  X = a.<span style="color:#9ece6a">Convolution2D</span>(X, {<span style="color:#bb9af7">4</span>, <span style="color:#bb9af7">4</span>}, <span style="color:#bb9af7">32</span>, <span style="color:#bb9af7">2</span>);    <span style="color:#565f89">// 5x5x32</span>
+  X = a.<span style="color:#9ece6a">LeakyRelu</span>(X);
+
+  X = a.<span style="color:#9ece6a">Linear</span>(X, {<span style="color:#bb9af7">1</span>, <span style="color:#bb9af7">1</span>, <span style="color:#bb9af7">1</span>});
+  X = a.<span style="color:#9ece6a">Sigmoid</span>(X);
+  <span style="color:#f7768e">return</span> X;
+};</code></pre>
