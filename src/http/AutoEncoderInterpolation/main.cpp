@@ -2,10 +2,13 @@
 #include "Image.hpp"
 #include "Model.hpp"
 #include "mnist/mnist_reader.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <iostream>
+#include <random>
 
 std::vector<Example> GetExamples(const std::vector<std::vector<float>>& input) {
   std::vector<Example> examples;
@@ -38,13 +41,13 @@ std::vector<Example> training_set =
 
 Allocator a;
 auto compress = [](Node* X) {
-  X = a.Convolution2D(X, {7, 7}, 6, 2);
+  X = a.Convolution2D(X, {5, 5}, 12, 2);  // 12x12x12
   X = a.LeakyRelu(X);
 
-  X = a.Convolution2D(X, {3, 3}, 16, 2);
+  X = a.Convolution2D(X, {4, 4}, 24, 2);  // 5x5x24
   X = a.LeakyRelu(X);
 
-  X = a.Convolution2D(X, {3, 3}, 32, 2);
+  X = a.Convolution2D(X, {3, 3}, 48, 2);  // 2x2x48
   X = a.LeakyRelu(X);
 
   X = a.Linear(X, {10});
@@ -53,15 +56,17 @@ auto compress = [](Node* X) {
 };
 
 auto decompress = [](Node* X) {
-  X = a.Linear(X, {2, 2, 32});
-  X = a.Deconvolution2D(X, {3, 3}, 16, 2);
-
+  X = a.Noise(X, 0.02f);                  // Latent regularization (training only)
+  X = a.Linear(X, {2, 2, 48});
   X = a.LeakyRelu(X);
-  X = a.Deconvolution2D(X, {3, 3}, 6, 2);
 
+  X = a.Deconvolution2D(X, {3, 3}, 24, 2);  // 5x5x24
   X = a.LeakyRelu(X);
-  X = a.Deconvolution2D(X, {7, 7}, 1, 2);
 
+  X = a.Deconvolution2D(X, {4, 4}, 12, 2);  // 12x12x12
+  X = a.LeakyRelu(X);
+
+  X = a.Deconvolution2D(X, {5, 5}, 1, 2);   // 27x27x1
   X = a.Sigmoid(X);
   return X;
 };
@@ -73,6 +78,7 @@ auto output = decompress(latent);
 Model model(input, output, training_set);
 
 void Train(float lambda, int iterations = 10) {
+  model.loss_function = LossFunction::BinaryCrossEntropy;
   model.Train(lambda, iterations);
 }
 
@@ -114,6 +120,7 @@ void LastOutput(uint8_t* _output) {
 void Predict(double* _input, uint8_t* _output) {
   Import(latent->output[0], _input);
   Range(latent->next, output).Apply([](Node* node) {
+    node->training = false;
     node->Forward(1);
   });
   Export(output->output[0], _output);
@@ -128,10 +135,63 @@ void LoadPretrainedModel() {
 
 #ifndef Web
 int main(int argc, const char* argv[]) {
-  Load();
-  Train(0.001f, 640);
-  std::cout << "error " << model.LastError() << std::endl;
-  Save();
+  bool scratch = false;
+  bool preview = false;
+  int epochs = 10;
+  float lr = 0.002f;
+  size_t batch = 16;
+  for (int i = 1; i < argc; ++i) {
+    std::string arg = argv[i];
+    if (arg == "--scratch") {
+      scratch = true;
+    } else if (arg == "--preview") {
+      preview = true;
+    } else if (arg == "--epochs" && i + 1 < argc) {
+      epochs = std::stoi(argv[++i]);
+    } else if (arg == "--lr" && i + 1 < argc) {
+      lr = std::stof(argv[++i]);
+    } else if (arg == "--batch" && i + 1 < argc) {
+      batch = static_cast<size_t>(std::stoul(argv[++i]));
+    }
+  }
+
+  model.batch_size = batch;
+  if (!scratch) {
+    Load();
+  }
+
+  if (preview) {
+    auto test_set = GetExamples(mnist_images.test_images);
+    const size_t eval_count = std::min<size_t>(test_set.size(), 1000);
+    float total_error = 0.f;
+    std::vector<Tensor> pairs;
+    for (size_t i = 0; i < eval_count; ++i) {
+      Tensor reconstructed = model.Predict(test_set[i].input);
+      total_error += (reconstructed - test_set[i].output).Error();
+      if (i < 64) {
+        pairs.push_back(
+            Tensor::ConcatenateHorizontal(test_set[i].input, reconstructed));
+      }
+    }
+    std::cout << "test_error (" << eval_count
+              << " images) = " << (total_error / eval_count) << std::endl;
+    std::ofstream("preview.pgm") << image_PGM(Tensor::Merge(pairs, 8), 0.f, 1.f);
+    std::cout << "Wrote preview.pgm (left: input, right: reconstruction)"
+              << std::endl;
+    return 0;
+  }
+
+  std::mt19937 rng(42);
+  const size_t steps_per_epoch = model.examples.size();
+  for (int epoch = 1; epoch <= epochs; ++epoch) {
+    std::shuffle(model.examples.begin(), model.examples.end(), rng);
+    Train(lr, static_cast<int>(steps_per_epoch));
+    std::cout << "epoch " << epoch << "/" << epochs
+              << " | lr=" << lr
+              << " | bce=" << model.LastError() << std::endl;
+    Save();
+    lr = std::max(lr * 0.9f, 0.0001f);
+  }
   return 0;
 }
 #endif

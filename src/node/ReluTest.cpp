@@ -30,7 +30,7 @@ TEST(Relu, Relu) {
 
   // Build a neural network.
   Input input({2});
-  auto a = Linear(&input, {4});
+  auto a = Linear(&input, {8});
   auto b = Relu(&a);
   auto c = Linear(&b, {2});
   auto d = Softmax(&c);

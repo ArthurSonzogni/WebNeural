@@ -4,11 +4,12 @@
 MaxPooling::MaxPooling(Node* node) {
   Link(node);
 
+  const size_t dim_z = input[0]->sizes.size() >= 3 ? input[0]->sizes[2] : 1;
   // clang-format off
   output = std::vector<Tensor>(T, Tensor({
     input[0]->sizes[0]/2,
     input[0]->sizes[1]/2,
-    input[0]->sizes[2],
+    dim_z,
   }));
   // clang-format on
 
@@ -16,7 +17,7 @@ MaxPooling::MaxPooling(Node* node) {
 }
 
 void MaxPooling::Forward(size_t batch_size) {
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for(size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& I = *(input[batch]);
     Tensor& O = output[batch];
@@ -51,7 +52,7 @@ void MaxPooling::ForwardZ(float* i, float* o) {
 }
 
 void MaxPooling::Backward(size_t batch_size) {
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for(size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& I = *(input[batch]);
     Tensor& O = output[batch];
@@ -77,18 +78,25 @@ void MaxPooling::BackwardZ(float* i, float* is, float* o, float* os) {
   const size_t dim_ox = output[0].sizes[0];
   const size_t dim_oy = output[0].sizes[1];
 
-  auto update = [&](size_t index_input, size_t index_output) {
-    is[index_input] = i[index_input] == o[index_output] ? os[index_output]  //
-                                                        : 0.f;              //
-  };
-
   // Work on one z-layer.
   for (size_t y = 0; y < dim_oy; ++y) {
     for (size_t x = 0; x < dim_ox; ++x) {
-      update(2 * x + 0 + dim_ix * (2 * y + 0), x + dim_ox * y);
-      update(2 * x + 1 + dim_ix * (2 * y + 0), x + dim_ox * y);
-      update(2 * x + 0 + dim_ix * (2 * y + 1), x + dim_ox * y);
-      update(2 * x + 1 + dim_ix * (2 * y + 1), x + dim_ox * y);
+      const size_t index_output = x + dim_ox * y;
+      const size_t indices[4] = {
+          2 * x + 0 + dim_ix * (2 * y + 0),
+          2 * x + 1 + dim_ix * (2 * y + 0),
+          2 * x + 0 + dim_ix * (2 * y + 1),
+          2 * x + 1 + dim_ix * (2 * y + 1),
+      };
+      bool matched = false;
+      for (size_t idx : indices) {
+        if (!matched && i[idx] == o[index_output]) {
+          is[idx] = os[index_output];
+          matched = true;
+        } else {
+          is[idx] = 0.f;
+        }
+      }
     }
   }
 }

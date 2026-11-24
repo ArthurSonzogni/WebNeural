@@ -11,11 +11,19 @@ Model::Model(Node* input, Node* output, const std::vector<Example>& examples)
 Model::Model(Node* input, Node* output) : Model(input, output, {}) {}
 
 void Model::Train(float lambda, size_t iterations) {
+  if (examples.empty() || iterations == 0) {
+    last_error = 0.f;
+    return;
+  }
+
+  Range(input->next, output).Apply([](Node* node) { node->training = true; });
+
+  const size_t max_batch = std::min(Node::T, std::max<size_t>(1, batch_size));
   std::vector<Tensor> error_sensitivity(Node::T,
                                         Tensor(output->output[0].sizes));
   float sum_error = 0.f;
   for (size_t i = 0; i < iterations;) {
-    size_t elements = std::min(Node::T, iterations - i);
+    size_t elements = std::min(max_batch, iterations - i);
 
     // Feed the neural network.
     for (size_t t = 0; t < elements; ++t) {
@@ -61,12 +69,17 @@ Tensor Model::Predict(const Tensor& input_value) {
   input->output[0] = input_value;
 
   // Make a prediction.
-  Range(input->next, output).Apply([](Node* node) { node->Forward(1); });
+  Range(input->next, output).Apply([](Node* node) {
+    node->training = false;
+    node->Forward(1);
+  });
 
   return output->output[0];
 }
 
 float Model::Error() {
+  if (examples.empty())
+    return 0.f;
   float error = 0;
   for (auto& example : examples) {
     Tensor output = Predict(example.input);
@@ -77,7 +90,9 @@ float Model::Error() {
 }
 
 float Model::ErrorInteger() {
-  size_t error = 0.f;
+  if (examples.empty())
+    return 0.f;
+  size_t error = 0;
   for (auto& example : examples) {
     Tensor output = Predict(example.input);
 
@@ -113,16 +128,26 @@ static std::ifstream::pos_type FileSize(const std::string& filename) {
 
 void Model::SerializeParamsToFile(const std::string& filename) {
   std::ofstream file(filename, std::ios::binary);
+  if (!file.is_open())
+    return;
   auto data = SerializeParams();
-  file.write((const char*)(&data[0]), data.size() * sizeof(float));
+  if (!data.empty()) {
+    file.write(reinterpret_cast<const char*>(data.data()),
+               data.size() * sizeof(float));
+  }
 }
 
 void Model::DeserializeParamsFromFile(const std::string& filename) {
   auto file_size = FileSize(filename);
   if (file_size > 0) {
+    const size_t num_floats = static_cast<size_t>(file_size) / sizeof(float);
+    if (num_floats == 0)
+      return;
     std::ifstream file(filename, std::ios::binary);
-    std::vector<float> data(file_size / sizeof(float));
-    file.read((char*)(&data[0]), file_size);
+    if (!file.is_open())
+      return;
+    std::vector<float> data(num_floats);
+    file.read(reinterpret_cast<char*>(data.data()), num_floats * sizeof(float));
     DeserializeParams(data);
   }
 }

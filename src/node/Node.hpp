@@ -31,6 +31,7 @@ class Node {
   Node* previous = nullptr;
 
   bool locked = false;  // Do not update.
+  bool training = true;
   void Lock() { locked = true; }
   void Unlock() { locked = false; }
   void Clear();
@@ -43,12 +44,14 @@ class Node {
  protected:
   void Link(Node* previous);
   void InitInternalSensitivity();
+  size_t ps_batches_used = 0;
 
  private:
   void InitIfNeeded();
   bool initiated = false;
   Tensor smoothed_squared_gradient;
   Tensor momentum;
+  Tensor ps_buffer;
 
   size_t n = 0;
 };

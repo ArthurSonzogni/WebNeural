@@ -13,6 +13,7 @@ class Border : public Node {
   float value;
   size_t dim_x;
   size_t dim_y;
+  size_t dim_z;
 };
 
 #endif /* end of include guard: BORDER_H */

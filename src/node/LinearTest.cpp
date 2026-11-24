@@ -2,7 +2,7 @@
 #include "Model.hpp"
 #include "gtest/gtest.h"
 #include "node/Input.hpp"
-#include "node/Linear.cuh"
+//#include "node/Linear.cuh"
 #include "node/Linear.hpp"
 #include <iostream>
 
@@ -32,8 +32,9 @@ TEST(Linear, Linear) {
 
   // Optimize it.
   Model model(&input, output, examples);
-  for(int i = 0; i<200000/64; ++i) {
-    model.Train(0.01f, 64);
+  for (int i = 0; i < 200000 / 64; ++i) {
+    float lr = i < 2000 ? 0.01f : 0.001f;
+    model.Train(lr, 64);
   }
 
   // Check the tuned params

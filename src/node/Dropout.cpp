@@ -11,7 +11,16 @@ Dropout::Dropout(Node* node, float ratio) : ratio(ratio) {
 }
 
 void Dropout::Forward(size_t batch_size) {
-  #pragma omp parallel for
+  if (!training) {
+    #pragma omp parallel for if(batch_size > 1)
+    for (size_t batch = 0; batch < batch_size; ++batch) {
+      output[batch] = *(input[batch]);
+    }
+    return;
+  }
+
+  const float scale = ratio > 0.f ? 1.f / ratio : 0.f;
+  #pragma omp parallel for if(batch_size > 1)
   for(size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& I = *(input[batch]);
     Tensor& O = output[batch];
@@ -21,7 +30,7 @@ void Dropout::Forward(size_t batch_size) {
     const size_t size = I.values.size();
     for (size_t index = 0; index < size; ++index) {
       if (R[index] <= ratio) {
-        O[index] = I[index];
+        O[index] = I[index] * scale;
       } else {
         O[index] = 0.f;
       }
@@ -30,7 +39,16 @@ void Dropout::Forward(size_t batch_size) {
 }
 
 void Dropout::Backward(size_t batch_size) {
-  #pragma omp parallel for
+  if (!training) {
+    #pragma omp parallel for if(batch_size > 1)
+    for (size_t batch = 0; batch < batch_size; ++batch) {
+      input_sensitivity[batch] = *(output_sensitivity[batch]);
+    }
+    return;
+  }
+
+  const float scale = ratio > 0.f ? 1.f / ratio : 0.f;
+  #pragma omp parallel for if(batch_size > 1)
   for(size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& I = *(input[batch]);
     Tensor& OS = *(output_sensitivity[batch]);
@@ -40,7 +58,7 @@ void Dropout::Backward(size_t batch_size) {
     const size_t size = I.values.size();
     for (size_t index = 0; index < size; ++index) {
       if (R[index] <= ratio) {
-        IS[index] = R[index] * OS[index];
+        IS[index] = OS[index] * scale;
       } else {
         IS[index] = 0.f;
       }

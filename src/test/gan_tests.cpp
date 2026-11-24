@@ -108,7 +108,7 @@ TEST(GAN, spiral) {
       auto fake_input = generator_output;
 
       auto fake_output = Tensor({1});
-      fake_output.values = {0.0};  // 0 means 'fake'.
+      fake_output.values = {-1.0};  // -1 means 'fake'.
       discriminator_examples.push_back({fake_input, fake_output});
     }
 
@@ -129,8 +129,8 @@ TEST(GAN, spiral) {
     model_discriminator.Train(0.001f, discriminator_examples.size());
     discriminator_loss = model_discriminator.LastError();
 
-    generator_loss = discriminator_loss;
-    discriminator_loss = generator_loss;
+    (void)generator_loss;
+    (void)discriminator_loss;
     //std::cerr << " generator_loss = " << generator_loss
               //<< " discriminator_loss = " << discriminator_loss << std::endl;
 

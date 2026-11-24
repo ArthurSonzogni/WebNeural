@@ -3,10 +3,11 @@
 BilinearUpsampling::BilinearUpsampling(Node* node) {
   Link(node);
 
+  const size_t dim_z = input[0]->sizes.size() >= 3 ? input[0]->sizes[2] : 1;
   output = std::vector<Tensor>(T, Tensor({
-                                      input[0]->sizes[0] * 2 + 2,  //
-                                      input[0]->sizes[1] * 2 + 2,  //
-                                      input[0]->sizes[2]           //
+                                      input[0]->sizes[0] * 2 + 1,  //
+                                      input[0]->sizes[1] * 2 + 1,  //
+                                      dim_z                        //
                                   }));
 
   params = Tensor();
@@ -15,11 +16,11 @@ BilinearUpsampling::BilinearUpsampling(Node* node) {
 }
 
 void BilinearUpsampling::Forward(size_t batch_size) {
-  const size_t dim_z = input[0]->sizes[2];
+  const size_t dim_z = input[0]->sizes.size() >= 3 ? input[0]->sizes[2] : 1;
   const size_t dim_iy = input[0]->sizes[1];
   const size_t dim_ix = input[0]->sizes[0];
 
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for(size_t batch = 0; batch<batch_size; ++batch) {
     Tensor& O = output[batch];
     Tensor& I = *(input[batch]);
@@ -48,11 +49,11 @@ void BilinearUpsampling::Forward(size_t batch_size) {
 }
 
 void BilinearUpsampling::Backward(size_t batch_size) {
-  const size_t dim_z = input[0]->sizes[2];
+  const size_t dim_z = input[0]->sizes.size() >= 3 ? input[0]->sizes[2] : 1;
   const size_t dim_iy = input[0]->sizes[1];
   const size_t dim_ix = input[0]->sizes[0];
 
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for(size_t batch = 0; batch<batch_size; ++batch) {
     Tensor& IS = input_sensitivity[batch];
     Tensor& OS = *(output_sensitivity[batch]);
@@ -72,7 +73,7 @@ void BilinearUpsampling::Backward(size_t batch_size) {
           v += OS.at(X + 0, Y + 2, z) * 0.25f;
           v += OS.at(X + 1, Y + 2, z) * 0.5f;
           v += OS.at(X + 2, Y + 2, z) * 0.25f;
-          *(IS_p++) += v;
+          *(IS_p++) = v;
         }
       }
     }

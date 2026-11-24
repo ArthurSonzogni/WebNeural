@@ -18,7 +18,7 @@ F ClipWeight(Node* begin, Node* end) {
 F GradientPenalty(Node* begin, Node* end, float penalty) {
   return [=](Model* model) {
     Range(begin, end).Apply([=](Node* node) {
-      for (auto it : node->params.values) {
+      for (auto& it : node->params.values) {
         it *= penalty;
       }
     });

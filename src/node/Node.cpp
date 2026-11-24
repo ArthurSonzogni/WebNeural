@@ -2,50 +2,76 @@
 #include "Node.hpp"
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
-//static constexpr float ADAM_b1 = 0.f;
-static constexpr float ADAM_b2 = 0.9f;
-static constexpr float ADAM_epsilon = 1e-4f;
+static constexpr float ADAM_b1 = 0.9f;
+static constexpr float ADAM_b2 = 0.99f;
+static constexpr float ADAM_epsilon = 1e-8f;
 constexpr size_t Node::T;
 
 void Node::Update(size_t batch_size, float lambda) {
   InitIfNeeded();
-  if (locked)
+  if (batch_size == 0)
     return;
+
+  const size_t ps_count = ps_batches_used > 0 ? ps_batches_used : batch_size;
+  ps_batches_used = 0;
+
+  if (locked) {
+    for (size_t batch = 0; batch < ps_count; ++batch) {
+      params_sensitivity[batch].Fill(0.f);
+    }
+    return;
+  }
   n += 1;
 
-  // Gather params_sensitivity
-  Tensor PS = Tensor(params_sensitivity[0].sizes);
-  for (size_t batch = 0; batch < batch_size; ++batch) {
-    PS += params_sensitivity[batch];
-    params_sensitivity[batch].Fill(0.f);
+  const size_t params_size = params.values.size();
+  if (params_size == 0)
+    return;
+
+  const float inv_batch = 1.f / static_cast<float>(batch_size);
+  const float corr1 = 1.f / (1.f - std::pow(ADAM_b1, static_cast<float>(n)));
+  const float corr2 = 1.f / (1.f - std::pow(ADAM_b2, static_cast<float>(n)));
+  float* __restrict__ p_ptr = params.values.data();
+  float* __restrict__ m_ptr = momentum.values.data();
+  float* __restrict__ ssg_ptr = smoothed_squared_gradient.values.data();
+
+  if (ps_count == 1) {
+    float* __restrict__ ps_ptr = params_sensitivity[0].values.data();
+    #pragma omp parallel for if(params_size >= 4096)
+    for (size_t p = 0; p < params_size; ++p) {
+      const float g = ps_ptr[p] * inv_batch;
+      ps_ptr[p] = 0.f;
+      const float m = ADAM_b1 * m_ptr[p] + (1.f - ADAM_b1) * g;
+      const float v = ADAM_b2 * ssg_ptr[p] + (1.f - ADAM_b2) * g * g;
+      m_ptr[p] = m;
+      ssg_ptr[p] = v;
+      p_ptr[p] -= lambda * (m * corr1) / (std::sqrt(v * corr2) + ADAM_epsilon);
+    }
+    return;
   }
 
-  // I am using ADAM optimizer.
-  const size_t params_size = params.values.size();
+  // Gather params_sensitivity into reusable ps_buffer without heap allocation.
+  float* __restrict__ ps_buf = ps_buffer.values.data();
+  std::fill_n(ps_buf, params_size, 0.f);
+  for (size_t batch = 0; batch < ps_count; ++batch) {
+    float* __restrict__ src = params_sensitivity[batch].values.data();
+    #pragma omp simd
+    for (size_t p = 0; p < params_size; ++p) {
+      ps_buf[p] += src[p];
+      src[p] = 0.f;
+    }
+  }
+
+  // Full Adam update with bias correction.
+  #pragma omp parallel for if(params_size >= 4096)
   for (size_t p = 0; p < params_size; ++p) {
-    // Update first and second order estimate.
-    //momentum[p] = ADAM_b1 * momentum[p] + (1.f - ADAM_b1) * PS[p];
-
-    smoothed_squared_gradient[p] = ADAM_b2 * smoothed_squared_gradient[p] +
-                                   (1.f - ADAM_b2) * PS[p] * PS[p];
-
-    // Correct the bias.
-    //const float vt = momentum[p];// * (1.f - pow(ADAM_b1, n));
-    const float mt = smoothed_squared_gradient[p];// * (1.f - pow(ADAM_b2, n));
-
-    params[p] -= lambda * PS[p] / (std::sqrt(mt) + ADAM_epsilon);
-    
-
-
-    //if (std::isnan(params[p]))
-      //params[p] = 0.f;
-    //if (std::isnan(momentum[p]))
-      //momentum[p] = 0.f;
-    //if (std::isnan(smoothed_squared_gradient[p]))
-      //smoothed_squared_gradient[p] = 0.f;
-    //if (std::isnan(PS[p]))
-      //PS[p] = 0.f;
+    const float g = ps_buf[p] * inv_batch;
+    const float m = ADAM_b1 * m_ptr[p] + (1.f - ADAM_b1) * g;
+    const float v = ADAM_b2 * ssg_ptr[p] + (1.f - ADAM_b2) * g * g;
+    m_ptr[p] = m;
+    ssg_ptr[p] = v;
+    p_ptr[p] -= lambda * (m * corr1) / (std::sqrt(v * corr2) + ADAM_epsilon);
   }
 }
 
@@ -87,6 +113,8 @@ void Node::InitIfNeeded() {
   momentum.Fill(0.f);
   smoothed_squared_gradient = Tensor(params.sizes);
   smoothed_squared_gradient.Fill(0.f);
+  ps_buffer = Tensor(params.sizes);
+  ps_buffer.Fill(0.f);
 }
 
 void Node::Clear() {
@@ -150,6 +178,12 @@ void Node::SerializeParams(std::vector<float>& value) {
 
 void Node::DeserializeParams(const std::vector<float>& value, size_t& index) {
   InitIfNeeded();
+  const size_t required = params.values.size() +
+                          smoothed_squared_gradient.values.size() +
+                          momentum.values.size();
+  if (index > value.size() || value.size() - index < required) {
+    throw std::out_of_range("Serialized params buffer is too small");
+  }
   for (auto& p : params.values)
     p = value[index++];
   for (auto& p : smoothed_squared_gradient.values)

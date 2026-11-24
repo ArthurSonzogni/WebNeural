@@ -1,5 +1,5 @@
 #include <random>
-
+#include <algorithm>
 #include "Allocator.hpp"
 #include "Image.hpp"
 #include "Model.hpp"
@@ -27,14 +27,16 @@ std::vector<Example> GetExamples(const std::vector<std::vector<float>>& input,
 
 std::vector<Example> GetExamplesCentered(
     const std::vector<std::vector<float>>& input,
-    const std::vector<uint8_t>& output) {
+    const std::vector<uint8_t>& output,
+    size_t dim = 28) {
   std::vector<Example> examples;
   for (size_t i = 0; i < input.size(); ++i) {
-    auto input_example = Tensor({28, 28});
-    input_example.values = input[i];
-    for (auto& p : input_example.values) {
-      p /= 256.0f;
-      p = 2.0 * p - 1;
+    auto input_example = Tensor({dim, dim, 1});
+    for (size_t y = 0; y < dim; ++y) {
+      for (size_t x = 0; x < dim; ++x) {
+        size_t index = x + 28 * y;
+        input_example.at(x, y) = input[i][index] / 255.0f * 2.0f - 1.0f;
+      }
     }
 
     auto output_example = Tensor({10, 1, 1});
@@ -128,7 +130,7 @@ TEST(MNIST, LinearSoftmax) {
   tester.loss_function = LossFunction::SoftmaxCrossEntropy;
 
   for (size_t i = 0; i < 100; ++i) {
-    model.Train(0.001f, 10000);
+    model.Train(0.0001f, 10000);
     std::cerr << '\r' << i << ") error = " << model.LastError() << std::flush;
 
     Tensor images({28, 28, 10});
@@ -165,7 +167,7 @@ TEST(MNIST, MultilayerPerceptron) {
   auto network = [&](Node* X) {
     X = a.LeakyRelu(a.Linear(X, {40}));
     X = a.LeakyRelu(a.Linear(X, {30}));
-    X = a.LeakyRelu(a.Linear(X, {}));
+    X = a.LeakyRelu(a.Linear(X, {20}));
     X = a.LeakyRelu(a.Linear(X, {10}));
     return X;
   };
@@ -195,9 +197,9 @@ TEST(MNIST, CNN) {
   auto mnist = mnist::read_dataset<std::vector, std::vector, float, uint8_t>(
       MNIST_DATA_LOCATION);
   std::vector<Example> training_set =
-      GetExamplesCentered(mnist.training_images, mnist.training_labels);
+      GetExamplesCentered(mnist.training_images, mnist.training_labels, 27);
   std::vector<Example> testing_set =
-      GetExamplesCentered(mnist.test_images, mnist.test_labels);
+      GetExamplesCentered(mnist.test_images, mnist.test_labels, 27);
 
   // training_set.resize(000);
   // testing_set.resize(5000);
@@ -484,7 +486,7 @@ TEST(MNIST, WCGAN) {
 
   std::vector<Example> examples;
   for (size_t iteration = 1; iteration < 10000; ++iteration) {
-    float learning_rate = 0.003f / std::pow(iteration, 1.0 / 7.0);
+    float learning_rate = 0.03f / std::pow(iteration, 1.0 / 7.0);
 
     std::vector<Tensor> generated;
     float generative_error = 0.f;
@@ -520,7 +522,8 @@ TEST(MNIST, WCGAN) {
       // Train the network.
       auto model = Model(generator_input, discriminator_output, examples);
       model.loss_function = LossFunction::WasserStein;
-      // model.post_update_function = PostUpdateFunction::ClipWeight;
+      model.post_update_function = PostUpdateFunction::ClipWeight(
+          discriminator_input, discriminator_output);
 
       // generated.clear();
       float error = 0.f;
@@ -546,9 +549,8 @@ TEST(MNIST, WCGAN) {
         auto model =
             Model(generator_input, discriminator_output, examples_reference);
         model.loss_function = LossFunction::WasserStein;
-        // model.post_update_function =
-        // PostUpdateFunction::ClipWeight(discriminator_input,
-        // discriminator_output);
+        model.post_update_function = PostUpdateFunction::ClipWeight(
+            discriminator_input, discriminator_output);
 
         std::vector<Tensor> preview;
         for (size_t i = 0; i < examples_reference.size(); i += Node::T) {

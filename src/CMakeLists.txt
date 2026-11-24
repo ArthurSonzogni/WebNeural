@@ -57,12 +57,25 @@ add_library(main
   ../third_party/stb_image/implementation.cpp
 )
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set_source_files_properties(
+    ../third_party/stb_image/implementation.cpp
+    PROPERTIES COMPILE_OPTIONS "-fno-lto;-Wno-stringop-overflow"
+  )
+endif()
+
+if (NOT Web AND NOT MSVC)
+  target_compile_options(main PRIVATE
+    $<$<CONFIG:Release>:-O3 -march=native -ffp-contract=fast -fno-math-errno -fno-trapping-math>
+  )
+endif()
+
 # ┌─────────────────────────────────────────────────┐
 # │ ThinLTO                                         │
 # └─────────────────────────────────────────────────┘
-include(CheckIPOSupported)
-check_ipo_supported()
-set_target_properties(main PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+#include(CheckIPOSupported)
+#check_ipo_supported()
+#set_target_properties(main PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 add_library(sse4_1 INTERFACE IMPORTED)
 if(MSVC)
@@ -83,18 +96,38 @@ endif()
 
 if (NOT Web)
 
-# Note: For gtest, please follow:
-# https://stackoverflow.com/questions/24295876/cmake-cannot-find-a-googletest-required-library
-find_package(GTest REQUIRED)
-find_package (Threads)
-include_directories(${GTest_INCLUDE_DIRS})
+enable_testing()
 
+option(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
+option(FETCHCONTENT_QUIET FALSE)
+include(FetchContent)
+
+FetchContent_Declare(googletest
+  GIT_REPOSITORY "https://github.com/google/googletest"
+  GIT_TAG        23ef29555ef4789f555f1ba8c51b4c52975f0907
+  GIT_PROGRESS   TRUE
+)
+FetchContent_GetProperties(googletest)
+if(NOT googletest_POPULATED)
+  FetchContent_Populate(googletest)
+  set(BUILD_GMOCK OFF CACHE INTERNAL "")
+  set(INSTALL_GTEST OFF CACHE INTERNAL "")
+  set(gtest_force_shared_crt ON CACHE INTERNAL "")
+  add_subdirectory(
+    ${googletest_SOURCE_DIR}
+    ${googletest_BINARY_DIR}
+    EXCLUDE_FROM_ALL
+  )
+endif()
+
+include(GoogleTest)
 function(add_new_test test_name test_files)
   add_executable(${ARGV})
   target_link_libraries(${test_name}
-    main
-    ${GTEST_BOTH_LIBRARIES}
-    Threads::Threads
+    PRIVATE main
+    PRIVATE gtest
+    PRIVATE gtest_main
+    #PRIVATE Threads::Threads
   )
   target_compile_definitions(${test_name} PRIVATE MNIST_DATA_LOCATION="${MNIST_DATA_DIR}")
   target_compile_definitions(${test_name} PRIVATE MNIST_FASHION_DATA_LOCATION="${MNIST_FASHION_DATA_DIR}")

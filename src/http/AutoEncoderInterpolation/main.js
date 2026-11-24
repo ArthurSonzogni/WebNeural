@@ -99,7 +99,7 @@ let lambda = 0.0;
 
 let container_a = document.querySelector("#container_a");
 let container_b = document.querySelector("#container_b");
-let container_lambda = document.querySelector("#container_lambda");
+let container_c = document.querySelector("#container_c");
 
 let sliders_a = SliderGroup(container_a);
 let sliders_b = SliderGroup(container_b);
@@ -153,11 +153,11 @@ var LastOutput;
 var LoadPretrainedModel;
 
 Module.onRuntimeInitialized = function() {
-  Predict = Module.cwrap('Predict','number',['number', 'number'])
-  Train = Module.cwrap('Train','void',[]);
-  LastInput = Module.cwrap('LastInput','void',['number']);
-  LastOutput = Module.cwrap('LastOutput','void',['number']);
-  LoadPretrainedModel = Module.cwrap('LoadPretrainedModel','void',['number']);
+  Predict = Module.cwrap('Predict', 'void', ['number', 'number']);
+  Train = Module.cwrap('Train', 'void', []);
+  LastInput = Module.cwrap('LastInput', 'void', ['number']);
+  LastOutput = Module.cwrap('LastOutput', 'void', ['number']);
+  LoadPretrainedModel = Module.cwrap('LoadPretrainedModel', 'void', []);
 
   input = CreateImageArray(27*27*4);
   output = CreateImageArray(27*27*4);
@@ -181,4 +181,4 @@ function TrainJS() {
 setInterval(function() {
   if (can_train)
     TrainJS();
-}, 1.0/30.0);
+}, 1000.0/30.0);

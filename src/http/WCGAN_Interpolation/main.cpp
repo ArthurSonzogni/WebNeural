@@ -176,18 +176,19 @@ void Train() {
   Range(discriminator_input, discriminator_output).Apply(&Node::Clear);
 
   // Generate some examples.
+  const size_t num_generated = examples.size();
   examples.clear();
   std::uniform_int_distribution<> random_index(0, training_set.size() - 1);
-  for (auto& input : generator_output->output) {
+  for (size_t i = 0; i < num_generated; ++i) {
     auto output = Tensor(1);
     // One fake
     output.values = {-1.f};
-    examples.push_back({input, output});
+    examples.push_back({generator_output->output[i], output});
 
     // One real
-    input = training_set[random_index(random_generator)].input;
+    const Tensor& real_input = training_set[random_index(random_generator)].input;
     output.values = {1.0};
-    examples.push_back({input, output});
+    examples.push_back({real_input, output});
   }
 
   // Train the network.

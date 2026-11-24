@@ -30,58 +30,49 @@ std::vector<Example> GetExamples(const std::vector<std::vector<float>>& input,
 }
 
 TEST(Deconvolution2D, Deconvolution2D) {
-  return;
-  auto mnist = mnist::read_dataset<std::vector, std::vector, float, uint8_t>(
-      MNIST_DATA_LOCATION);
-  std::vector<Example> training_set =
-      GetExamples(mnist.training_images, mnist.training_labels);
+  // Learn a known 3x3 stride-2 transposed convolution filter on synthetic data.
+  Tensor target_filter({3, 3, 1, 1});
+  target_filter.values = {
+      0.5f,  1.0f,  0.5f,
+      1.0f, -2.0f,  1.0f,
+      0.5f,  1.0f,  0.5f,
+  };
 
-
-  // Build a neural network.
-  auto input = Input({27, 27, 1});
-  auto conv_1 = Convolution2D(&input, {5, 5}, 4, 2);  // {12,12,8}
-  auto relu_1 = Relu(&conv_1);
-  auto conv_2 = Convolution2D(&relu_1, {7, 7}, 8, 1);  // {4,4,16}
-  auto relu_2 = Relu(&conv_2);
-  auto linear = Linear(&relu_2, {10});
-  auto relu_3 = Relu(&linear);
-  auto new_base = Linear(&relu_3, linear.input[0]->sizes);
-  auto deco_1 = Deconvolution2D(&new_base, {7, 7}, 4, 1); // {4,4,64}
-  auto relu_4 = Relu(&deco_1);
-  auto deco_2 = Deconvolution2D(&relu_4, {5, 5}, 1, 2);  // {4,4,64}
-  auto output = Sigmoid(&deco_2);
-
-  Model model(&input, &output, training_set);
-
-  for (int i = 0; i < 1000; ++i) {
-    model.batch_size = 400;
-    model.Train(0.00001f, 5000);
-
-    // Check for new predictions.
-    //float error = model.Error();
-    if (model.LastError() < 0.0005)
-      break;
-
-    for (int i = 0; i < 100; ++i) {
-      if (180*i < model.LastError() * 100)
-        std::cout << "#";
-      else
-        std::cout << "-";
+  auto apply_deconv = [&](const Tensor& in) {
+    const size_t iw = in.sizes[0];
+    const size_t ih = in.sizes[1];
+    const size_t stride = 2;
+    Tensor out({(iw - 1) * stride + 3, (ih - 1) * stride + 3, 1});
+    for (size_t y = 0; y < ih; ++y) {
+      for (size_t x = 0; x < iw; ++x) {
+        const float v = in.at(x, y, 0);
+        for (size_t dy = 0; dy < 3; ++dy) {
+          for (size_t dx = 0; dx < 3; ++dx) {
+            out.at(stride * x + dx, stride * y + dy, 0) +=
+                v * target_filter.values[dx + 3 * dy];
+          }
+        }
+      }
     }
-    std::cout << " " << model.LastError() << " " << model.iteration << "/"
-              << model.examples.size() << std::endl;
+    return out;
+  };
 
-    //std::ofstream("conv_1.pgm") << image_PGM(conv_1.params);
-    //std::ofstream("conv_2.pgm") << image_PGM(conv_2.params);
-    //std::ofstream("deco_1.pgm") << image_PGM(deco_1.params);
-    //std::ofstream("deco_2.pgm") << image_PGM(deco_2.params);
-    std::ofstream("output.pgm") << image_PGM(output.output[0], 0.f, 1.f);
-
-    {
-      std::stringstream ss;
-      ss << "generated_" << std::setw(4) << std::setfill('0') << i
-         << ".pgm";
-      std::ofstream(ss.str()) << image_PGM(output.output[0]);
-    }
+  std::vector<Example> examples;
+  for (int i = 0; i < 200; ++i) {
+    Tensor in = Tensor::Random({4, 4, 1});
+    examples.push_back({in, apply_deconv(in)});
   }
+
+  auto input = Input({4, 4, 1});
+  auto output = Deconvolution2D(&input, {3, 3}, 1, 2);
+
+  Model model(&input, &output, examples);
+  for (int i = 1; i <= 200; ++i) {
+    model.Train(0.05f / std::sqrt(static_cast<float>(i)), 200);
+    if (model.Error() < 1e-4f)
+      break;
+  }
+
+  EXPECT_LT(model.Error(), 1e-4f);
+  EXPECT_LT((target_filter - output.params).Error(), 1e-3f);
 }

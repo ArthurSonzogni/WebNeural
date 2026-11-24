@@ -2,8 +2,6 @@
 #include <cmath>
 #include <random>
 
-static std::mt19937 rng;
-
 Noise::Noise(Node* node, float sigma) : sigma(sigma) {
   Link(node);
 
@@ -12,6 +10,14 @@ Noise::Noise(Node* node, float sigma) : sigma(sigma) {
 }
 
 void Noise::Forward(size_t batch_size) {
+  if (!training) {
+    for (size_t batch = 0; batch < batch_size; ++batch) {
+      output[batch] = *(input[batch]);
+    }
+    return;
+  }
+
+  thread_local std::mt19937 local_rng;
   std::normal_distribution<float> random(0.0, sigma);
   for (size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& O = output[batch];
@@ -19,7 +25,7 @@ void Noise::Forward(size_t batch_size) {
 
     const size_t size = I.values.size();
     for (size_t i = 0; i < size; ++i) {
-      O[i] = I[i] + random(rng);
+      O[i] = I[i] + random(local_rng);
     }
   }
 }

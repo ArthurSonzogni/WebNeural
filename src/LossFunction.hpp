@@ -30,6 +30,9 @@ F CrossEntropy;
 // Same as CrossEntropy, but as is there was a Softmax layer in at the end.
 F SoftmaxCrossEntropy;
 
+// Binary cross-entropy for sigmoid outputs in (0, 1).
+F BinaryCrossEntropy;
+
 // ⌠
 // ⌡ (y > 0.5) z dy- (y<0.5) z dy;
 //

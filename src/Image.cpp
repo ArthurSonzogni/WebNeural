@@ -1,8 +1,23 @@
 #include "Image.hpp"
-#include "sstream"
+#include <algorithm>
 #include <cmath>
+#include <sstream>
+
+namespace {
+
+int NormalizeToByte(float v, float v_min, float v_max) {
+  if (v_max <= v_min)
+    return 0;
+  float normalized = (v - v_min) / (v_max - v_min);
+  normalized = std::max(0.f, std::min(1.f, normalized));
+  return static_cast<int>(255.f * normalized);
+}
+
+}  // namespace
 
 std::string image_PGM(const Tensor& tensor) {
+  if (tensor.values.empty())
+    return "";
   float v_min = tensor.values[0];
   float v_max = tensor.values[0];
   for (const auto& it : tensor.values) {
@@ -26,9 +41,8 @@ std::string image_PGM(const Tensor& tensor, float v_min, float v_max) {
   for (size_t image = 0; image < num_images; ++image) {
     for (size_t y = 0; y < height; ++y) {
       for (size_t x = 0; x < width; ++x) {
-        ss << int(255 *
-                  (tensor.values[x + width * (y + height * image)] - v_min) /
-                  (v_max - v_min))
+        ss << NormalizeToByte(tensor.values[x + width * (y + height * image)],
+                              v_min, v_max)
            << " ";
       }
       ss << std::endl;
@@ -45,14 +59,18 @@ std::string image_PGM(const Tensor& tensor, float v_min, float v_max) {
 }
 
 std::string image_PPM_centered(const Tensor& tensor) {
-  float v = tensor.values[0];
+  if (tensor.values.empty())
+    return "";
+  float v = 0.f;
   for (const auto& it : tensor.values) {
-    v = std::max(std::abs(v), it);
+    v = std::max(v, std::abs(it));
   }
   return image_PPM(tensor, -v, +v);
 }
 
 std::string image_PPM(const Tensor& tensor) {
+  if (tensor.values.empty())
+    return "";
   float v_min = tensor.values[0];
   float v_max = tensor.values[0];
   for (const auto& it : tensor.values) {
@@ -74,11 +92,11 @@ std::string image_PPM(const Tensor& tensor, float v_min, float v_max) {
 
   for (size_t y = 0; y < height; ++y) {
     for (size_t x = 0; x < width; ++x) {
-      for(size_t c = 0; c<components; ++c) {
+      for (size_t c = 0; c < components; ++c) {
         float v = tensor.values[x + width * (y + height * c)];
         if (c != 0)
           ss << " ";
-        ss << int(255.f * (v - v_min) / (v_max - v_min));
+        ss << NormalizeToByte(v, v_min, v_max);
       }
       ss << std::endl;
     }

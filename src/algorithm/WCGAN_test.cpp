@@ -21,6 +21,8 @@ std::vector<Example> GetFlower() {
     //stbi_set_flip_vertically_on_load(true);
     unsigned char* image =
         stbi_load(filename.str().c_str(), &width, &height, &channels, STBI_rgb);
+    if (!image)
+      continue;
     std::cout << width << " " << height << " " << channels << std::endl;
     Tensor input(
         std::vector<size_t>({(size_t)width, (size_t)height, (size_t)3}));
@@ -104,7 +106,7 @@ TEST(WCGAN, ExampleMNIST) {
     X = a.Deconvolution2D(X, {5, 5}, 64, 2);
     X = a.LeakyRelu(X);
 
-    X = a.Deconvolution2D(X, {5, 5}, 3, 1);
+    X = a.Deconvolution2D(X, {5, 5}, 1, 1);
     X = a.Sigmoid(X);
     return X;
   };

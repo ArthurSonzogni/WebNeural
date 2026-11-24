@@ -27,7 +27,7 @@ void WCGAN::Train() {
   std::vector<Example> examples;
   for (int i = 0; i < batch_size; ++i) {
     auto input = Tensor::Random(latent_size);
-    auto output = Tensor({1});
+    auto output = Tensor(1);
     output.values = {1.0};
     examples.push_back({input, output});
   }
@@ -40,12 +40,14 @@ void WCGAN::Train() {
   float error = 0.f;
   std::vector<Tensor> generated;
   for (size_t i = 0; i < examples.size(); i += Node::T) {
-    model_train_generator.Train(learning_rate, examples.size());
+    const size_t elements = std::min(Node::T, examples.size() - i);
+    model_train_generator.Train(learning_rate, elements);
     generated.insert(generated.end(), generator_output_->output.begin(),
-                     generator_output_->output.end());
-    error += model_train_generator.LastError();
+                     generator_output_->output.begin() + elements);
+    error += model_train_generator.LastError() * elements;
   }
-  float generative_error = Node::T * error / examples.size();
+  float generative_error =
+      examples.empty() ? 0.f : error / static_cast<float>(examples.size());
 
   //---------------------------------------------------------------------------
   // Train the discriminator
@@ -57,7 +59,7 @@ void WCGAN::Train() {
 
   examples.clear();
   for (size_t i = 0; i < generated.size(); ++i) {
-    auto output = Tensor({1});
+    auto output = Tensor(1);
 
     output.values = {1.f};
     examples.push_back(Example{input(), output});
@@ -102,6 +104,7 @@ void WCGAN::SaveToFile(const std::string& filename) {
   auto model =
       Model(generator_input_, discriminator_output_, std::vector<Example>());
   model.SerializeParamsToFile(filename);
+  Node::Link(discriminator_input_, discriminator_input_->next);
 }
 
 void WCGAN::LoadFromFile(const std::string& filename) {
@@ -109,4 +112,5 @@ void WCGAN::LoadFromFile(const std::string& filename) {
   auto model =
       Model(generator_input_, discriminator_output_, std::vector<Example>());
   model.DeserializeParamsFromFile(filename);
+  Node::Link(discriminator_input_, discriminator_input_->next);
 }

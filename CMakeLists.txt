@@ -42,12 +42,14 @@ if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+else()
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-unknown-pragmas")
 endif()
 
 # ┌─────────────────────────────────────────────────┐
 # │ MNIST reader                                    │
 # └─────────────────────────────────────────────────┘
-find_package(MNIST PATHS third_party/mnist-fashion)
+find_package(MNIST PATHS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/mnist-fashion NO_CMAKE_FIND_ROOT_PATH)
 if(NOT MNIST_FOUND)
     message(FATAL_ERROR
      "MNIST loader could not be found.

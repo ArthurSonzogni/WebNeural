@@ -84,22 +84,24 @@ Tensor Tensor::SphericalRandom(const std::vector<size_t>& sizes) {
   for (auto x : tensor.values) {
     XX += x * x;
   }
-  const float inv_norm = 1.0 / std::sqrt(XX);
-  for (auto& x : tensor.values) {
-    x *= inv_norm;
+  if (XX > 0.f) {
+    const float inv_norm = 1.f / std::sqrt(XX);
+    for (auto& x : tensor.values) {
+      x *= inv_norm;
+    }
   }
   return tensor;
 }
 
 void Tensor::Randomize() {
-  static std::mt19937 rng;
+  thread_local std::mt19937 rng;
   std::normal_distribution<float> random(0.0, 1.0);
   for (auto& i : values)
     i = random(rng);
 }
 
 void Tensor::UniformRandom() {
-  static std::mt19937 rng;
+  thread_local std::mt19937 rng;
   std::uniform_real_distribution<float> random(0.0, 1.0);
   for (auto& i : values)
     i = random(rng);
@@ -120,10 +122,11 @@ float Tensor::at(size_t x, size_t y, size_t z) const {
 
 // static
 Tensor Tensor::Merge(std::vector<Tensor> tensors, int dim_x) {
-  size_t dx = dim_x ? dim_x : std::sqrt(tensors.size());
-  size_t dy = (tensors.size()+dx-1) / dx;
-  //size_t dx = tensors.size();
-  //size_t dy = 1;
+  if (tensors.empty())
+    return Tensor();
+  size_t dx = dim_x > 0 ? static_cast<size_t>(dim_x)
+                        : std::max<size_t>(1, std::sqrt(tensors.size()));
+  size_t dy = (tensors.size() + dx - 1) / dx;
   size_t width = tensors[0].sizes[0];
   size_t height = tensors[0].sizes.size() >= 2 ? tensors[0].sizes[1] : 1;
   size_t component = tensors[0].sizes.size() >= 3 ? tensors[0].sizes[2] : 1;
@@ -135,7 +138,8 @@ Tensor Tensor::Merge(std::vector<Tensor> tensors, int dim_x) {
     for (size_t c = 0; c < component; ++c) {
       for (size_t y = 0; y < height; ++y) {
         for (size_t x = 0; x < width; ++x) {
-          merge.at(x + width * i_dx, y + height * i_dy, c) = t.at(x,y,c);
+          merge.at(x + width * i_dx, y + height * i_dy, c) =
+              t.values[x + width * (y + height * c)];
         }
       }
     }
@@ -160,15 +164,23 @@ void Tensor::Clip(const float v_min, const float v_max) {
 }
 
 void Tensor::Rescale(const float min, const float max) {
+  if (values.empty())
+    return;
   float input_min = values[0];
   float input_max = values[0];
-  for(const auto& v : values) {
+  for (const auto& v : values) {
     input_min = std::min(input_min, v);
     input_max = std::max(input_max, v);
   }
 
-  for(auto& v : values) {
-    v = (v - input_min) * (max - min) / (input_max - input_min) + min;
+  const float range = input_max - input_min;
+  if (range == 0.f) {
+    Fill(min);
+    return;
+  }
+
+  for (auto& v : values) {
+    v = (v - input_min) * (max - min) / range + min;
   }
 }
 

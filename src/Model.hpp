@@ -33,7 +33,7 @@ class Model {
   Node* output;
   std::vector<Example> examples;
   size_t iteration = 0;
-  size_t batch_size = 20;
+  size_t batch_size = Node::T;
 
   LossFunction::F* loss_function = LossFunction::SquaredDifference;
   PostUpdateFunction::F post_update_function = PostUpdateFunction::None();

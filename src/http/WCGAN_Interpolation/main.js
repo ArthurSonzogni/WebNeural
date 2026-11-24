@@ -103,7 +103,7 @@ let lambda = 0.0;
 
 let container_a = document.querySelector("#container_a");
 let container_b = document.querySelector("#container_b");
-let container_lambda = document.querySelector("#container_lambda");
+let container_c = document.querySelector("#container_c");
 
 let sliders_a = SliderGroup(container_a);
 let sliders_b = SliderGroup(container_b);
@@ -142,9 +142,11 @@ function UpdateImages() {
     input.data[i] = interpolation;
     C_XX += interpolation * interpolation;
   }
-  let ratio = (Math.sqrt(A_XX) * (1.0 - lambda) + Math.sqrt(B_XX) * lambda) / Math.sqrt(C_XX);
-  for(let i = 0; i<10; ++i) {
-    input.data[i] *= ratio;
+  if (C_XX > 0.0) {
+    let ratio = (Math.sqrt(A_XX) * (1.0 - lambda) + Math.sqrt(B_XX) * lambda) / Math.sqrt(C_XX);
+    for(let i = 0; i<10; ++i) {
+      input.data[i] *= ratio;
+    }
   }
   Predict(input.offset, output.offset);
   DrawImage(document.querySelector("#image_c"), output.data);
@@ -172,10 +174,10 @@ function LoadOptimizedParams() {
 }
 
 Module.onRuntimeInitialized = function() {
-  Predict = Module.cwrap('Predict','number',['number', 'number'])
-  LoadPretrainedModel = Module.cwrap('LoadPretrainedModel','number',['number', 'number'])
-  Train = Module.cwrap('Train','void',[]);
-  ResetModelWeight = Module.cwrap('ResetModelWeight','void',[]);
+  Predict = Module.cwrap('Predict', 'void', ['number', 'number']);
+  LoadPretrainedModel = Module.cwrap('LoadPretrainedModel', 'void', []);
+  Train = Module.cwrap('Train', 'void', []);
+  ResetModelWeight = Module.cwrap('ResetModelWeight', 'void', []);
 
   input = CreateInputArray(10);
   output = CreateImageArray(29*29*4);
@@ -193,4 +195,4 @@ function TrainJS() {
 setInterval(function() {
   if (can_train)
     TrainJS();
-}, 1.0/30.0);
+}, 1000.0/30.0);

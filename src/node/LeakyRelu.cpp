@@ -9,7 +9,7 @@ LeakyRelu::LeakyRelu(Node* node) {
 }
 
 void LeakyRelu::Forward(size_t batch_size) {
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for (size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& O = output[batch];
     Tensor& I = *(input[batch]);
@@ -22,7 +22,7 @@ void LeakyRelu::Forward(size_t batch_size) {
 }
 
 void LeakyRelu::Backward(size_t batch_size) {
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for (size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& I = *(input[batch]);
     Tensor& OS = *(output_sensitivity[batch]);

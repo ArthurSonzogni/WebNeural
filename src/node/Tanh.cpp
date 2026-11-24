@@ -9,22 +9,21 @@ Tanh::Tanh(Node* node) {
 }
 
 void Tanh::Forward(size_t batch_size) {
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for (size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& O = output[batch];
     Tensor& I = *(input[batch]);
 
     const size_t size = I.values.size();
     for (size_t i = 0; i < size; ++i) {
-      const float e = exp(-2.0 * I[i]);
-      O[i] = (1.f - e) / (1.f + e);
+      O[i] = std::tanh(I[i]);
     }
   }
 }
 
 void Tanh::Backward(size_t batch_size) {
   const size_t size = input[0]->values.size();
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for (size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& O = output[batch];
     Tensor& IS = input_sensitivity[batch];

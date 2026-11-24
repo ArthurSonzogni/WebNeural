@@ -9,7 +9,7 @@ Sigmoid::Sigmoid(Node* node) {
 }
 
 void Sigmoid::Forward(size_t batch_size) {
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for (size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& O = output[batch];
     Tensor& I = *(input[batch]);
@@ -23,7 +23,7 @@ void Sigmoid::Forward(size_t batch_size) {
 
 void Sigmoid::Backward(size_t batch_size) {
   const size_t size = input[0]->values.size();
-  #pragma omp parallel for
+  #pragma omp parallel for if(batch_size > 1)
   for (size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& O = output[batch];
     Tensor& IS = input_sensitivity[batch];

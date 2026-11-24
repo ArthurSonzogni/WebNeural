@@ -38,65 +38,110 @@ Deconvolution2D::Deconvolution2D(Node* node,
 }
 
 void Deconvolution2D::Forward(size_t batch_size) {
-  // clang-format off
-  #pragma omp parallel for
-  for(size_t batch = 0; batch<batch_size; ++batch) {
-    Tensor& I = *(input[batch]);
-    Tensor& O = output[batch];
-    O.Fill(0.f);
-    for(size_t z = 0; z<size_input[2]; ++z)
-    for(size_t y = 0; y<size_input[1]; ++y)
-    for(size_t x = 0; x<size_input[0]; ++x) {
-      const float input_value = I.at(x,y,z);
-      for(size_t dz = 0; dz < size_params[3]; ++dz)
-      for(size_t dy = 0; dy < size_params[1]; ++dy)
-      for(size_t dx = 0; dx < size_params[0]; ++dx) {
-        const float output_index =
-           stride * x + dx + size_output[0] * (
-           stride * y + dy + size_output[1] * (
-           dz));
-        const size_t params_index = 
-          dx + size_params[0] * (
-          dy + size_params[1] * (
-          z  + size_params[2] * (
-          dz)));
-        O[output_index] += params[params_index] * input_value;
+  const size_t in_w = size_input[0];
+  const size_t in_h = size_input[1];
+  const size_t in_c = size_input[2];
+  const size_t kw = size_params[0];
+  const size_t kh = size_params[1];
+  const size_t out_w = size_output[0];
+  const size_t out_h = size_output[1];
+  const size_t out_c = size_params[3];
+  const float* __restrict__ P = params.values.data();
+
+  #pragma omp parallel for if(batch_size > 1)
+  for (size_t batch = 0; batch < batch_size; ++batch) {
+    const float* __restrict__ I = input[batch]->values.data();
+    float* __restrict__ O = output[batch].values.data();
+    std::fill_n(O, out_w * out_h * out_c, 0.f);
+
+    for (size_t dz = 0; dz < out_c; ++dz) {
+      float* __restrict__ out_z = O + dz * out_w * out_h;
+      for (size_t z = 0; z < in_c; ++z) {
+        const float* __restrict__ in_z = I + z * in_w * in_h;
+        const float* __restrict__ pz = P + kw * kh * (z + in_c * dz);
+        for (size_t y = 0; y < in_h; ++y) {
+          const float* __restrict__ in_row = in_z + y * in_w;
+          const float* __restrict__ p = pz;
+          for (size_t dy = 0; dy < kh; ++dy) {
+            float* __restrict__ out_y = out_z + (stride * y + dy) * out_w;
+            for (size_t dx = 0; dx < kw; ++dx) {
+              const float w = *p++;
+              float* __restrict__ out_row = out_y + dx;
+              if (stride == 1) {
+                #pragma omp simd
+                for (size_t x = 0; x < in_w; ++x) {
+                  out_row[x] += w * in_row[x];
+                }
+              } else {
+                for (size_t x = 0; x < in_w; ++x) {
+                  out_row[stride * x] += w * in_row[x];
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
-  // clang-format on
 }
 
 void Deconvolution2D::Backward(size_t batch_size) {
-  // clang-format off
-  #pragma omp parallel for
-  for(size_t batch = 0; batch < batch_size; ++batch) {
-    Tensor& I = *(input[batch]);
-    Tensor& IS = input_sensitivity[batch];
-    Tensor& PS = params_sensitivity[batch];
-    Tensor& OS = *(output_sensitivity[batch]);
-    IS.Fill(0.f);
-    for(size_t z = 0; z<size_input[2]; ++z)
-    for(size_t y = 0; y<size_input[1]; ++y)
-    for(size_t x = 0; x<size_input[0]; ++x) {
-      const float input_value = I.at(x,y,z);
-      for(size_t dz = 0; dz < size_params[3]; ++dz)
-      for(size_t dy = 0; dy < size_params[1]; ++dy)
-      for(size_t dx = 0; dx < size_params[0]; ++dx) {
-        const float output_index =
-           stride * x + dx + size_output[0] * (
-           stride * y + dy + size_output[1] * (
-           dz));
-        const size_t params_index = 
-          dx + size_params[0] * (
-          dy + size_params[1] * (
-           z + size_params[2] * (
-          dz)));
-        const float os = OS[output_index];
-        IS.at(x,y,z) += params[params_index] * os;
-        PS[params_index] += input_value * os;
+  const size_t in_w = size_input[0];
+  const size_t in_h = size_input[1];
+  const size_t in_c = size_input[2];
+  const size_t kw = size_params[0];
+  const size_t kh = size_params[1];
+  const size_t out_w = size_output[0];
+  const size_t out_h = size_output[1];
+  const size_t out_c = size_params[3];
+  const float* __restrict__ P = params.values.data();
+
+  #pragma omp parallel for if(batch_size > 1)
+  for (size_t batch = 0; batch < batch_size; ++batch) {
+    const float* __restrict__ I = input[batch]->values.data();
+    float* __restrict__ IS = input_sensitivity[batch].values.data();
+    float* __restrict__ PS = params_sensitivity[batch].values.data();
+    const float* __restrict__ OS = output_sensitivity[batch]->values.data();
+    std::fill_n(IS, in_w * in_h * in_c, 0.f);
+
+    for (size_t dz = 0; dz < out_c; ++dz) {
+      const float* __restrict__ os_z = OS + dz * out_w * out_h;
+      for (size_t z = 0; z < in_c; ++z) {
+        const float* __restrict__ in_z = I + z * in_w * in_h;
+        float* __restrict__ is_z = IS + z * in_w * in_h;
+        const size_t p_off = kw * kh * (z + in_c * dz);
+        const float* __restrict__ pz = P + p_off;
+        float* __restrict__ psz = PS + p_off;
+        for (size_t y = 0; y < in_h; ++y) {
+          const float* __restrict__ in_row = in_z + y * in_w;
+          float* __restrict__ is_row = is_z + y * in_w;
+          const float* __restrict__ p = pz;
+          float* __restrict__ ps = psz;
+          for (size_t dy = 0; dy < kh; ++dy) {
+            const float* __restrict__ os_y = os_z + (stride * y + dy) * out_w;
+            for (size_t dx = 0; dx < kw; ++dx) {
+              const float w = *p++;
+              const float* __restrict__ os_row = os_y + dx;
+              float ps_acc = 0.f;
+              if (stride == 1) {
+                #pragma omp simd reduction(+:ps_acc)
+                for (size_t x = 0; x < in_w; ++x) {
+                  const float os = os_row[x];
+                  is_row[x] += w * os;
+                  ps_acc += in_row[x] * os;
+                }
+              } else {
+                for (size_t x = 0; x < in_w; ++x) {
+                  const float os = os_row[stride * x];
+                  is_row[x] += w * os;
+                  ps_acc += in_row[x] * os;
+                }
+              }
+              *ps++ += ps_acc;
+            }
+          }
+        }
       }
     }
   }
-  // clang-format on
 }
