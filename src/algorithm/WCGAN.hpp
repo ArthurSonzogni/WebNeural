@@ -30,6 +30,7 @@ class WCGAN {
   Node* generator_input_ = nullptr;
   Node* generator_output_ = nullptr;
   Node* discriminator_input_ = nullptr;
+  Node* discriminator_first_ = nullptr;
   Node* discriminator_output_ = nullptr;
 
   std::random_device random;

@@ -1,25 +1,25 @@
-#include <iostream>
 #include "node/Linear.hpp"
+#include <algorithm>
 #include <cmath>
+#include <iostream>
 
 Linear::Linear(Node* node, std::vector<size_t> output_sizes) {
-  Link(node);
+  AddInput(node);
 
-  input_size = input[0]->values.size();
+  input_size = inputs[0]->output[0].values.size();
   output_size = Multiply(output_sizes);
 
   params = Tensor({input_size + 1, output_size});
-  output = std::vector<Tensor>(T, Tensor(output_sizes));
-
   params.Randomize();
   params *= 1.f / sqrt(input_size);
 
-  InitInternalSensitivity();
+  InitBuffers(output_sizes);
 }
 
 void Linear::Forward(size_t batch_size) {
   const size_t row_stride = input_size + 1;
   const float* __restrict__ P = params.values.data();
+  const auto& in_vec = inputs[0]->output;
 
   #pragma omp parallel for schedule(static) if(output_size * batch_size >= 1024)
   for (size_t output_index = 0; output_index < output_size; ++output_index) {
@@ -28,14 +28,14 @@ void Linear::Forward(size_t batch_size) {
 
     size_t batch = 0;
     for (; batch + 7 < batch_size; batch += 8) {
-      const float* __restrict__ i0 = input[batch + 0]->values.data();
-      const float* __restrict__ i1 = input[batch + 1]->values.data();
-      const float* __restrict__ i2 = input[batch + 2]->values.data();
-      const float* __restrict__ i3 = input[batch + 3]->values.data();
-      const float* __restrict__ i4 = input[batch + 4]->values.data();
-      const float* __restrict__ i5 = input[batch + 5]->values.data();
-      const float* __restrict__ i6 = input[batch + 6]->values.data();
-      const float* __restrict__ i7 = input[batch + 7]->values.data();
+      const float* __restrict__ i0 = in_vec[batch + 0].values.data();
+      const float* __restrict__ i1 = in_vec[batch + 1].values.data();
+      const float* __restrict__ i2 = in_vec[batch + 2].values.data();
+      const float* __restrict__ i3 = in_vec[batch + 3].values.data();
+      const float* __restrict__ i4 = in_vec[batch + 4].values.data();
+      const float* __restrict__ i5 = in_vec[batch + 5].values.data();
+      const float* __restrict__ i6 = in_vec[batch + 6].values.data();
+      const float* __restrict__ i7 = in_vec[batch + 7].values.data();
 
       float v0 = bias, v1 = bias, v2 = bias, v3 = bias;
       float v4 = bias, v5 = bias, v6 = bias, v7 = bias;
@@ -63,7 +63,7 @@ void Linear::Forward(size_t batch_size) {
     }
 
     for (; batch < batch_size; ++batch) {
-      const float* __restrict__ in = input[batch]->values.data();
+      const float* __restrict__ in = in_vec[batch].values.data();
       float v = bias;
       #pragma omp simd reduction(+:v)
       for (size_t k = 0; k < input_size; ++k) {
@@ -77,26 +77,26 @@ void Linear::Forward(size_t batch_size) {
 void Linear::Backward(size_t batch_size) {
   const size_t row_stride = input_size + 1;
   const float* __restrict__ P = params.values.data();
-  float* __restrict__ PS0 = params_sensitivity[0].values.data();
-  ps_batches_used = 1;
+  float* __restrict__ PG = params_grad.values.data();
+  const auto& in_vec = inputs[0]->output;
+  auto& in_grad_vec = inputs[0]->grad;
 
-  // 1) Accumulate parameter gradients across the batch directly into PS0
-  //    (each output_index owns a disjoint row, so no synchronization needed).
+  // 1) Accumulate parameter gradients directly into params_grad (disjoint rows).
   #pragma omp parallel for schedule(static) if(output_size * batch_size >= 1024)
   for (size_t output_index = 0; output_index < output_size; ++output_index) {
-    float* __restrict__ ps = PS0 + output_index * row_stride;
+    float* __restrict__ ps = PG + output_index * row_stride;
     float bias_grad = 0.f;
 
     size_t batch = 0;
     for (; batch + 3 < batch_size; batch += 4) {
-      const float os0 = (*output_sensitivity[batch + 0])[output_index];
-      const float os1 = (*output_sensitivity[batch + 1])[output_index];
-      const float os2 = (*output_sensitivity[batch + 2])[output_index];
-      const float os3 = (*output_sensitivity[batch + 3])[output_index];
-      const float* __restrict__ i0 = input[batch + 0]->values.data();
-      const float* __restrict__ i1 = input[batch + 1]->values.data();
-      const float* __restrict__ i2 = input[batch + 2]->values.data();
-      const float* __restrict__ i3 = input[batch + 3]->values.data();
+      const float os0 = grad[batch + 0][output_index];
+      const float os1 = grad[batch + 1][output_index];
+      const float os2 = grad[batch + 2][output_index];
+      const float os3 = grad[batch + 3][output_index];
+      const float* __restrict__ i0 = in_vec[batch + 0].values.data();
+      const float* __restrict__ i1 = in_vec[batch + 1].values.data();
+      const float* __restrict__ i2 = in_vec[batch + 2].values.data();
+      const float* __restrict__ i3 = in_vec[batch + 3].values.data();
 
       #pragma omp simd
       for (size_t k = 0; k < input_size; ++k) {
@@ -106,8 +106,8 @@ void Linear::Backward(size_t batch_size) {
     }
 
     for (; batch < batch_size; ++batch) {
-      const float os = (*output_sensitivity[batch])[output_index];
-      const float* __restrict__ in = input[batch]->values.data();
+      const float os = grad[batch][output_index];
+      const float* __restrict__ in = in_vec[batch].values.data();
       #pragma omp simd
       for (size_t k = 0; k < input_size; ++k) {
         ps[k] += in[k] * os;
@@ -117,24 +117,20 @@ void Linear::Backward(size_t batch_size) {
     ps[input_size] += bias_grad;
   }
 
-  // 2) Compute input gradients in batch tiles of 4 to reuse params in cache.
+  // 2) Accumulate input gradients in batch tiles of 4.
   const size_t full_tiles = batch_size / 4;
   #pragma omp parallel for schedule(static) if(full_tiles > 1)
   for (size_t tile = 0; tile < full_tiles; ++tile) {
     const size_t b = tile * 4;
-    float* __restrict__ is0 = input_sensitivity[b + 0].values.data();
-    float* __restrict__ is1 = input_sensitivity[b + 1].values.data();
-    float* __restrict__ is2 = input_sensitivity[b + 2].values.data();
-    float* __restrict__ is3 = input_sensitivity[b + 3].values.data();
-    std::fill_n(is0, input_size, 0.f);
-    std::fill_n(is1, input_size, 0.f);
-    std::fill_n(is2, input_size, 0.f);
-    std::fill_n(is3, input_size, 0.f);
+    float* __restrict__ is0 = in_grad_vec[b + 0].values.data();
+    float* __restrict__ is1 = in_grad_vec[b + 1].values.data();
+    float* __restrict__ is2 = in_grad_vec[b + 2].values.data();
+    float* __restrict__ is3 = in_grad_vec[b + 3].values.data();
 
-    const float* __restrict__ os_ptr0 = output_sensitivity[b + 0]->values.data();
-    const float* __restrict__ os_ptr1 = output_sensitivity[b + 1]->values.data();
-    const float* __restrict__ os_ptr2 = output_sensitivity[b + 2]->values.data();
-    const float* __restrict__ os_ptr3 = output_sensitivity[b + 3]->values.data();
+    const float* __restrict__ os_ptr0 = grad[b + 0].values.data();
+    const float* __restrict__ os_ptr1 = grad[b + 1].values.data();
+    const float* __restrict__ os_ptr2 = grad[b + 2].values.data();
+    const float* __restrict__ os_ptr3 = grad[b + 3].values.data();
 
     for (size_t output_index = 0; output_index < output_size; ++output_index) {
       const float* __restrict__ w = P + output_index * row_stride;
@@ -154,9 +150,8 @@ void Linear::Backward(size_t batch_size) {
   }
 
   for (size_t batch = full_tiles * 4; batch < batch_size; ++batch) {
-    float* __restrict__ is = input_sensitivity[batch].values.data();
-    std::fill_n(is, input_size, 0.f);
-    const float* __restrict__ os_ptr = output_sensitivity[batch]->values.data();
+    float* __restrict__ is = in_grad_vec[batch].values.data();
+    const float* __restrict__ os_ptr = grad[batch].values.data();
     for (size_t output_index = 0; output_index < output_size; ++output_index) {
       const float* __restrict__ w = P + output_index * row_stride;
       const float os = os_ptr[output_index];

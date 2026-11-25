@@ -2,18 +2,22 @@ Module = {};
 
 function CreateImageArray(size) {
   const offset = Module._malloc(size);
-  Module.HEAPU8.set(new Uint8ClampedArray(size), offset);
+  Module.HEAPU8.fill(0, offset, offset + size);
   return {
-    data: Module.HEAPU8.subarray(offset, offset + size),
+    get data() {
+      return Module.HEAPU8.subarray(offset, offset + size);
+    },
     offset: offset
   };
 }
 
 function CreateInputArray(size) {
   const offset = Module._malloc(size * 8);
-  Module.HEAPF64.set(new Float64Array(size), offset / 8);
+  Module.HEAPF64.fill(0, offset / 8, offset / 8 + size);
   return {
-    data: Module.HEAPF64.subarray(offset / 8, offset / 8 + size),
+    get data() {
+      return Module.HEAPF64.subarray(offset / 8, offset / 8 + size);
+    },
     offset: offset
   };
 }

@@ -1,7 +1,10 @@
 #include "algorithm/WCGAN.hpp"
 #include <iomanip>
 #include <iostream>
+#include "Graph.hpp"
+#include "LossFunction.hpp"
 #include "Model.hpp"
+#include "Optimizer.hpp"
 
 void WCGAN::Init() {
   generator_input_ = allocator_.Input(latent_size);
@@ -9,108 +12,94 @@ void WCGAN::Init() {
 
   discriminator_input_ = allocator_.Input(input().sizes);
   discriminator_output_ = discriminator(allocator_, discriminator_input_);
+  discriminator_first_ = discriminator_input_->outputs[0];
 }
 
 void WCGAN::Train() {
+  Graph gen_graph(generator_output_);
+  Graph disc_graph(discriminator_output_);
+  Adam opt_g(gen_graph.TrainableNodes());
+  Adam opt_d(disc_graph.TrainableNodes());
+
   //---------------------------------------------------------------------------
   // Train the generator
   //---------------------------------------------------------------------------
+  discriminator_first_->SetInput(0, generator_output_);
+  Graph full_graph(discriminator_output_);
 
-  // Connect the two network.
-  Node::Link(generator_output_, discriminator_input_->next);
-
-  // Do not train on the discriminative network.
-  Range(discriminator_input_, discriminator_output_).Apply(&Node::Lock);
-  Range(generator_input_, discriminator_output_).Apply(&Node::Clear);
-
-  // Generate instances from the latent distribution.
-  std::vector<Example> examples;
-  for (int i = 0; i < batch_size; ++i) {
-    auto input = Tensor::Random(latent_size);
-    auto output = Tensor(1);
-    output.values = {1.0};
-    examples.push_back({input, output});
+  const size_t batch = static_cast<size_t>(std::max(1, batch_size));
+  generator_input_->EnsureBatchSize(batch);
+  for (size_t i = 0; i < batch; ++i) {
+    generator_input_->output[i] = Tensor::Random(latent_size);
   }
+  full_graph.Forward(batch, true);
+  full_graph.ZeroGrad(batch);
 
-  // Train the generator;
-  auto model_train_generator =
-      Model(generator_input_, discriminator_output_, examples);
-  model_train_generator.loss_function = LossFunction::WasserStein;
-
+  Tensor target_real(1);
+  target_real.values = {1.0f};
   float error = 0.f;
-  std::vector<Tensor> generated;
-  for (size_t i = 0; i < examples.size(); i += Node::T) {
-    const size_t elements = std::min(Node::T, examples.size() - i);
-    model_train_generator.Train(learning_rate, elements);
-    generated.insert(generated.end(), generator_output_->output.begin(),
-                     generator_output_->output.begin() + elements);
-    error += model_train_generator.LastError() * elements;
+  for (size_t i = 0; i < batch; ++i) {
+    float cur = 0.f;
+    LossFunction::WasserStein(target_real, discriminator_output_->output[i],
+                              &cur, &discriminator_output_->grad[i]);
+    error += cur;
   }
-  float generative_error =
-      examples.empty() ? 0.f : error / static_cast<float>(examples.size());
+  full_graph.Backward(batch);
+  opt_g.Step(batch, learning_rate);
+  opt_d.ZeroGrad();
+
+  std::vector<Tensor> generated(generator_output_->output.begin(),
+                                generator_output_->output.begin() + batch);
+  float generative_error = error / static_cast<float>(batch);
 
   //---------------------------------------------------------------------------
   // Train the discriminator
   //---------------------------------------------------------------------------
-  // Disconnect the two networks.
-  Node::Link(discriminator_input_, discriminator_input_->next);
-  Range(discriminator_input_, discriminator_output_).Apply(&Node::Unlock);
-  Range(discriminator_input_, discriminator_output_).Apply(&Node::Clear);
+  discriminator_first_->SetInput(0, discriminator_input_);
 
-  examples.clear();
+  std::vector<Example> examples;
+  examples.reserve(generated.size() * 2);
   for (size_t i = 0; i < generated.size(); ++i) {
-    auto output = Tensor(1);
-
-    output.values = {1.f};
-    examples.push_back(Example{input(), output});
-
-    output.values = {-1.f};
-    examples.push_back(Example{generated[i], output});
+    Tensor out(1);
+    out.values = {1.f};
+    examples.push_back(Example{input(), out});
+    out.values = {-1.f};
+    examples.push_back(Example{generated[i], out});
   }
 
-  // Train the network.
   auto model_train_discriminator =
       Model(discriminator_input_, discriminator_output_, examples);
   model_train_discriminator.loss_function = LossFunction::WasserStein;
-  //model_train_discriminator.post_update_function =
-      //PostUpdateFunction::ClipWeight(discriminator_input_->next,
-                                     //discriminator_output_);
   model_train_discriminator.post_update_function =
-      PostUpdateFunction::GradientPenalty(discriminator_input_->next,
-                                          discriminator_output_, 0.99);
+      PostUpdateFunction::WeightDecay(discriminator_output_, 0.99f);
 
-  // std::shuffle(input.begin(), input.end(), random_generator);
-  for(int i = 0; i<10; ++i) {
+  for (int i = 0; i < 10; ++i) {
     model_train_discriminator.Train(learning_rate, examples.size());
   }
   float discriminative_error = model_train_discriminator.LastError();
 
   std::cout << "| g_error = " << std::setw(10) << generative_error
-            << "| d_error " << std::setw(10)
-            << discriminative_error
-            //<< "| epoch = "
-            //<< (0.0 * float(Node::T) / training_set.size()) << std::endl;
+            << "| d_error " << std::setw(10) << discriminative_error
             << std::endl;
 }
 
 Tensor WCGAN::Generate() {
-  auto model =
-      Model(generator_input_, generator_output_, std::vector<Example>());
-  return model.Predict(Tensor::Random(latent_size));
+  Graph gen_graph(generator_output_);
+  generator_input_->output[0] = Tensor::Random(latent_size);
+  gen_graph.Forward(1, false);
+  return generator_output_->output[0];
 }
 
 void WCGAN::SaveToFile(const std::string& filename) {
-  Node::Link(generator_output_, discriminator_input_->next);
-  auto model =
-      Model(generator_input_, discriminator_output_, std::vector<Example>());
-  model.SerializeParamsToFile(filename);
-  Node::Link(discriminator_input_, discriminator_input_->next);
+  discriminator_first_->SetInput(0, generator_output_);
+  Graph full_graph(discriminator_output_);
+  full_graph.SaveWeightsToFile(filename);
+  discriminator_first_->SetInput(0, discriminator_input_);
 }
 
 void WCGAN::LoadFromFile(const std::string& filename) {
-  Node::Link(generator_output_, discriminator_input_->next);
-  auto model =
-      Model(generator_input_, discriminator_output_, std::vector<Example>());
-  model.DeserializeParamsFromFile(filename);
-  Node::Link(discriminator_input_, discriminator_input_->next);
+  discriminator_first_->SetInput(0, generator_output_);
+  Graph full_graph(discriminator_output_);
+  full_graph.LoadWeightsFromFile(filename);
+  discriminator_first_->SetInput(0, discriminator_input_);
 }

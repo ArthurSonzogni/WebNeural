@@ -1,19 +1,15 @@
 #include "node/LeakyRelu.hpp"
 
 LeakyRelu::LeakyRelu(Node* node) {
-  Link(node);
-
-  output = std::vector<Tensor>(T, Tensor(input[0]->sizes));
-
-  InitInternalSensitivity();
+  AddInput(node);
+  InitBuffers(inputs[0]->output[0].sizes);
 }
 
 void LeakyRelu::Forward(size_t batch_size) {
   #pragma omp parallel for if(batch_size > 1)
   for (size_t batch = 0; batch < batch_size; ++batch) {
     Tensor& O = output[batch];
-    Tensor& I = *(input[batch]);
-
+    const Tensor& I = inputs[0]->output[batch];
     const size_t size = I.values.size();
     for (size_t i = 0; i < size; ++i) {
       O[i] = I[i] > 0.f ? I[i] : 0.1f * I[i];
@@ -24,13 +20,12 @@ void LeakyRelu::Forward(size_t batch_size) {
 void LeakyRelu::Backward(size_t batch_size) {
   #pragma omp parallel for if(batch_size > 1)
   for (size_t batch = 0; batch < batch_size; ++batch) {
-    Tensor& I = *(input[batch]);
-    Tensor& OS = *(output_sensitivity[batch]);
-    Tensor& IS = input_sensitivity[batch];
-
+    const Tensor& I = inputs[0]->output[batch];
+    const Tensor& OS = grad[batch];
+    Tensor& IS = inputs[0]->grad[batch];
     const size_t size = I.values.size();
     for (size_t i = 0; i < size; ++i) {
-      IS[i] = I[i] > 0.f ? OS[i] : 0.1f * OS[i];
+      IS[i] += I[i] > 0.f ? OS[i] : 0.1f * OS[i];
     }
   }
 }

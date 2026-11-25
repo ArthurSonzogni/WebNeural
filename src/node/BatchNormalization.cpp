@@ -3,24 +3,23 @@
 #include <stdexcept>
 
 BatchNormalization::BatchNormalization(Node* node) {
-  Link(node);
+  AddInput(node);
 
-  const auto& in_sizes = input[0]->sizes;
+  const auto& in_sizes = inputs[0]->output[0].sizes;
+  const size_t total_size = inputs[0]->output[0].values.size();
   if (in_sizes.size() >= 3) {
     channels = in_sizes[2];
-    spatial_size = input[0]->values.size() / channels;
+    spatial_size = total_size / channels;
   } else if (in_sizes.size() == 1) {
     channels = in_sizes[0];
     spatial_size = 1;
   } else {
     channels = 1;
-    spatial_size = input[0]->values.size();
+    spatial_size = total_size;
   }
 
-  output = std::vector<Tensor>(T, Tensor(in_sizes));
-  x_hat = std::vector<Tensor>(T, Tensor(in_sizes));
+  x_hat = {Tensor(in_sizes)};
 
-  // Learnable scale (gamma = 1) and shift (beta = 0) per channel.
   params = Tensor({2, channels});
   for (size_t c = 0; c < channels; ++c) {
     params[c] = 1.f;
@@ -32,7 +31,20 @@ BatchNormalization::BatchNormalization(Node* node) {
   running_mean.assign(channels, 0.f);
   running_var.assign(channels, 1.f);
 
-  InitInternalSensitivity();
+  InitBuffers(in_sizes);
+}
+
+void BatchNormalization::EnsureBatchSize(size_t batch_size) {
+  Node::EnsureBatchSize(batch_size);
+  if (output.empty())
+    return;
+  const std::vector<size_t> sizes = output[0].sizes;
+  if (x_hat.size() < batch_size) {
+    x_hat.reserve(batch_size);
+    while (x_hat.size() < batch_size) {
+      x_hat.emplace_back(sizes);
+    }
+  }
 }
 
 void BatchNormalization::Forward(size_t batch_size) {
@@ -50,7 +62,7 @@ void BatchNormalization::Forward(size_t batch_size) {
     if (training) {
       float sum = 0.f;
       for (size_t batch = 0; batch < batch_size; ++batch) {
-        const float* __restrict__ in = input[batch]->values.data() + offset;
+        const float* __restrict__ in = inputs[0]->output[batch].values.data() + offset;
         for (size_t s = 0; s < spatial_size; ++s) {
           sum += in[s];
         }
@@ -59,7 +71,7 @@ void BatchNormalization::Forward(size_t batch_size) {
 
       float var = 0.f;
       for (size_t batch = 0; batch < batch_size; ++batch) {
-        const float* __restrict__ in = input[batch]->values.data() + offset;
+        const float* __restrict__ in = inputs[0]->output[batch].values.data() + offset;
         for (size_t s = 0; s < spatial_size; ++s) {
           const float d = in[s] - m;
           var += d * d;
@@ -89,7 +101,7 @@ void BatchNormalization::Forward(size_t batch_size) {
     const float gamma = params[c];
     const float beta = params[channels + c];
     for (size_t batch = 0; batch < batch_size; ++batch) {
-      const float* __restrict__ in = input[batch]->values.data() + offset;
+      const float* __restrict__ in = inputs[0]->output[batch].values.data() + offset;
       float* __restrict__ xh = x_hat[batch].values.data() + offset;
       float* __restrict__ out = output[batch].values.data() + offset;
       #pragma omp simd
@@ -111,8 +123,7 @@ void BatchNormalization::Backward(size_t batch_size) {
     return;
 
   const float total = static_cast<float>(spatial_size * batch_size);
-  float* __restrict__ PS0 = params_sensitivity[0].values.data();
-  ps_batches_used = 1;
+  float* __restrict__ PG = params_grad.values.data();
 
   #pragma omp parallel for if(channels >= 8)
   for (size_t c = 0; c < channels; ++c) {
@@ -124,24 +135,24 @@ void BatchNormalization::Backward(size_t batch_size) {
     float dbeta = 0.f;
     for (size_t batch = 0; batch < batch_size; ++batch) {
       const float* __restrict__ xh = x_hat[batch].values.data() + offset;
-      const float* __restrict__ os = output_sensitivity[batch]->values.data() + offset;
+      const float* __restrict__ os = grad[batch].values.data() + offset;
       #pragma omp simd reduction(+:dgamma,dbeta)
       for (size_t s = 0; s < spatial_size; ++s) {
         dgamma += os[s] * xh[s];
         dbeta += os[s];
       }
     }
-    PS0[c] += dgamma;
-    PS0[channels + c] += dbeta;
+    PG[c] += dgamma;
+    PG[channels + c] += dbeta;
 
     if (!training) {
       const float scale = gamma * inv;
       for (size_t batch = 0; batch < batch_size; ++batch) {
-        const float* __restrict__ os = output_sensitivity[batch]->values.data() + offset;
-        float* __restrict__ is = input_sensitivity[batch].values.data() + offset;
+        const float* __restrict__ os = grad[batch].values.data() + offset;
+        float* __restrict__ is = inputs[0]->grad[batch].values.data() + offset;
         #pragma omp simd
         for (size_t s = 0; s < spatial_size; ++s) {
-          is[s] = os[s] * scale;
+          is[s] += os[s] * scale;
         }
       }
       continue;
@@ -152,27 +163,31 @@ void BatchNormalization::Backward(size_t batch_size) {
     const float mean_dgamma = dgamma / total;
     for (size_t batch = 0; batch < batch_size; ++batch) {
       const float* __restrict__ xh = x_hat[batch].values.data() + offset;
-      const float* __restrict__ os = output_sensitivity[batch]->values.data() + offset;
-      float* __restrict__ is = input_sensitivity[batch].values.data() + offset;
+      const float* __restrict__ os = grad[batch].values.data() + offset;
+      float* __restrict__ is = inputs[0]->grad[batch].values.data() + offset;
       #pragma omp simd
       for (size_t s = 0; s < spatial_size; ++s) {
-        is[s] = scale * (os[s] - mean_dbeta - xh[s] * mean_dgamma);
+        is[s] += scale * (os[s] - mean_dbeta - xh[s] * mean_dgamma);
       }
     }
   }
 }
 
-void BatchNormalization::SerializeParams(std::vector<float>& value) {
-  Node::SerializeParams(value);
+size_t BatchNormalization::SerializedWeightCount() const {
+  return Node::SerializedWeightCount() + 2 * channels;
+}
+
+void BatchNormalization::SerializeWeights(std::vector<float>& value) const {
+  Node::SerializeWeights(value);
   for (size_t c = 0; c < channels; ++c)
     value.push_back(running_mean[c]);
   for (size_t c = 0; c < channels; ++c)
     value.push_back(running_var[c]);
 }
 
-void BatchNormalization::DeserializeParams(const std::vector<float>& value,
-                                           size_t& index) {
-  Node::DeserializeParams(value, index);
+void BatchNormalization::DeserializeWeights(const std::vector<float>& value,
+                                            size_t& index) {
+  Node::DeserializeWeights(value, index);
   if (index > value.size() || value.size() - index < 2 * channels) {
     throw std::out_of_range("Serialized BatchNormalization stats too small");
   }

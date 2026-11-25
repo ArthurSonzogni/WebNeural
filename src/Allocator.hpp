@@ -41,8 +41,10 @@ class Allocator {
   // Regularisation
   Node* BatchNormalization(Node* input);
 
-  // Helper
+  // Helper / Structural (DAG)
   Node* Border(Node* input, size_t border_size, float value);
+  Node* Add(Node* a, Node* b);
+  Node* Concat(Node* a, Node* b);
 
  private:
   std::vector<std::unique_ptr<Node>> nodes;

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    @google-analytics@
+
+    <meta charset="utf-8">
+    <title>@DEMO_TITLE@</title>
+    <meta name="description" content="@DEMO_DESC@">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+      @style@
+    </style>
+  </head>
+  <body>
+
+    <div id="loading">
+      <div class="loader"></div>
+      <div>Loading WebAssembly AutoEncoder...</div>
+    </div>
+
+    <div id="page">
+      <div class="top-bar">
+        <a id="parent_button" href="..">&larr; All Demos</a>
+        <span class="badge">C++ &rarr; WebAssembly &bull; 10D Latent Space</span>
+      </div>
+
+      <h1>@DEMO_HEADING@</h1>
+      <p class="subtitle">
+        @DEMO_SUBTITLE@
+      </p>
+
+      <div class="card">
+        <div class="figure-wrap">
+          <img src="figure.svg" alt="AutoEncoder architecture diagram">
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Live Reconstruction &amp; Training</h2>
+        <div class="btn-row">
+          <button onclick="ResetModel()" id="reset_model">Reset Weights</button>
+          <button onclick="ToogleTraining()" id="toogle_training" class="primary">Start Training</button>
+          <button onclick="LoadOptimizedParams()" id="load_pretrained_model">Load Trained Model</button>
+          <button onclick="Next()">Next Sample</button>
+          <span id="train_status" class="train-status">Pretrained model loaded</span>
+        </div>
+
+        <div class="recon-grid">
+          <div class="recon-box">
+            <canvas id="input" class="digit-canvas-lg"></canvas>
+            <div class="recon-label">Input</div>
+          </div>
+
+          <div class="recon-arrow">&rarr;</div>
+
+          <div class="recon-box">
+            <canvas id="output" class="digit-canvas-lg"></canvas>
+            <div class="recon-label">Reconstruction</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Latent Space &rarr; Image Interpolation</h2>
+        <div class="workspace">
+          <div class="vbox">
+            <div class="endpoint-row">
+              <div class="endpoint-meta">
+                <div class="endpoint-tag">A</div>
+                <button class="small" onclick="RandomizeA()">Dice</button>
+              </div>
+              <div id="container_a" class="slider-group flex"></div>
+              <canvas id="image_a" class="digit-canvas"></canvas>
+            </div>
+
+            <div class="endpoint-row">
+              <div class="endpoint-meta">
+                <div class="endpoint-tag">B</div>
+                <button class="small" onclick="RandomizeB()">Dice</button>
+              </div>
+              <div id="container_b" class="slider-group flex"></div>
+              <canvas id="image_b" class="digit-canvas"></canvas>
+            </div>
+          </div>
+
+          <div class="interpolation-panel">
+            <canvas id="image_c" class="digit-canvas-lg"></canvas>
+            <div class="interp-controls">
+              <span class="interp-label">A</span>
+              <input id="slider_lambda" class="h-slider" type="range" min="0" max="1" step="0.01" value="0.5">
+              <span class="interp-label">B</span>
+            </div>
+            <button id="toggle_animate" class="small" onclick="ToggleAnimate()">Pause Morph</button>
+          </div>
+        </div>
+
+        <div id="strip" class="strip"></div>
+      </div>
+
+      <div class="card">
+        <div class="gallery-header">
+          <div>
+            <h2 style="margin-bottom:4px;">Random Latent Gallery</h2>
+            <div class="gallery-hint">Click any image to load into <strong>A</strong> &bull; Shift+click (or right-click) to load into <strong>B</strong></div>
+          </div>
+          <button class="primary" onclick="SampleGallery()">Sample 16</button>
+        </div>
+        <div id="gallery" class="gallery-grid"></div>
+      </div>
+
+      <div class="card">
+        <h2>C++ Network &amp; DAG Code</h2>
+        <h3>Residual Block &amp; Convolutional AutoEncoder</h3>
+        <pre class="code-block"><code><span class="ty">Allocator</span> a;
+
+<span class="cm">// Residual skip block using the DAG Add node (keeps HxWxC unchanged).</span>
+<span class="kw">auto</span> res_block = [](<span class="ty">Node</span>* X, <span class="ty">size_t</span> channels) {
+  <span class="ty">Node</span>* h = a.<span class="fn">Deconvolution2D</span>(X, {<span class="num">3</span>, <span class="num">3</span>}, channels, <span class="num">1</span>);
+  h = a.<span class="fn">BatchNormalization</span>(h);
+  h = a.<span class="fn">LeakyRelu</span>(h);
+  h = a.<span class="fn">Convolution2D</span>(h, {<span class="num">3</span>, <span class="num">3</span>}, channels, <span class="num">1</span>);
+  h = a.<span class="fn">BatchNormalization</span>(h);
+  <span class="kw">return</span> a.<span class="fn">LeakyRelu</span>(a.<span class="fn">Add</span>(X, h));
+};
+
+<span class="kw">auto</span> compress = [](<span class="ty">Node</span>* X) {
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">5</span>, <span class="num">5</span>}, <span class="num">12</span>, <span class="num">2</span>);  <span class="cm">// 12x12x12</span>
+  X = a.<span class="fn">BatchNormalization</span>(X);
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">4</span>, <span class="num">4</span>}, <span class="num">24</span>, <span class="num">2</span>);  <span class="cm">// 5x5x24</span>
+  X = a.<span class="fn">BatchNormalization</span>(X);
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">3</span>, <span class="num">3</span>}, <span class="num">48</span>, <span class="num">2</span>);  <span class="cm">// 2x2x48</span>
+  X = a.<span class="fn">BatchNormalization</span>(X);
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">Linear</span>(X, {<span class="num">10</span>});                  <span class="cm">// 10D latent</span>
+  X = a.<span class="fn">Sigmoid</span>(X);
+  <span class="kw">return</span> X;
+};
+
+<span class="kw">auto</span> decompress = [](<span class="ty">Node</span>* X) {
+  X = a.<span class="fn">Noise</span>(X, <span class="num">0.02f</span>);                  <span class="cm">// training only</span>
+  X = a.<span class="fn">Linear</span>(X, {<span class="num">4</span>, <span class="num">4</span>, <span class="num">48</span>});
+  X = a.<span class="fn">BatchNormalization</span>(X);
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">BilinearUpsampling</span>(X);            <span class="cm">// 9x9x48</span>
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">3</span>, <span class="num">3</span>}, <span class="num">24</span>, <span class="num">1</span>);  <span class="cm">// 7x7x24</span>
+  X = a.<span class="fn">BatchNormalization</span>(X);
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = <span class="fn">res_block</span>(X, <span class="num">24</span>);                   <span class="cm">// 7x7x24 residual</span>
+
+  X = a.<span class="fn">BilinearUpsampling</span>(X);            <span class="cm">// 15x15x24</span>
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">2</span>, <span class="num">2</span>}, <span class="num">16</span>, <span class="num">1</span>);  <span class="cm">// 14x14x16</span>
+  X = a.<span class="fn">BatchNormalization</span>(X);
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">BilinearUpsampling</span>(X);            <span class="cm">// 29x29x16</span>
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">3</span>, <span class="num">3</span>}, <span class="num">1</span>, <span class="num">1</span>);   <span class="cm">// 27x27x1</span>
+  X = a.<span class="fn">Sigmoid</span>(X);
+  <span class="kw">return</span> X;
+};
+
+<span class="kw">auto</span> input  = a.<span class="fn">Input</span>({<span class="num">27</span>, <span class="num">27</span>, <span class="num">1</span>});
+<span class="kw">auto</span> latent = <span class="fn">compress</span>(input);
+<span class="kw">auto</span> output = <span class="fn">decompress</span>(latent);
+<span class="ty">Model</span> model(input, output, training_set);</code></pre>
+
+        <h3>Training &amp; Decoding from the 10D Latent Sliders</h3>
+        <pre class="code-block"><code><span class="cm">// Train with Binary Cross-Entropy and Adam (managed inside Model).</span>
+model.loss_function = <span class="ty">LossFunction</span>::BinaryCrossEntropy;
+model.<span class="fn">Train</span>(lambda, <span class="num">13</span>);
+
+<span class="cm">// Run only the decoder subgraph after `latent` for live slider interpolation.</span>
+<span class="kw">void</span> <span class="fn">Predict</span>(<span class="kw">double</span>* latent_in, <span class="ty">uint8_t</span>* rgba_out) {
+  <span class="fn">Import</span>(latent-&gt;output[<span class="num">0</span>], latent_in);
+  model.graph.<span class="fn">ForwardAfter</span>(latent, <span class="num">1</span>, <span class="kw">false</span>);
+  <span class="fn">Export</span>(output-&gt;output[<span class="num">0</span>], rgba_out);
+}</code></pre>
+      </div>
+    </div>
+
+    <script>
+      @script@
+    </script>
+    <script src="@DEMO_SCRIPT_NAME@"></script>
+  </body>
+</html>

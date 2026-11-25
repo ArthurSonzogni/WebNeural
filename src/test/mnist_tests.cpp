@@ -137,7 +137,8 @@ TEST(MNIST, LinearSoftmax) {
     for (size_t x = 0; x < 28; ++x)
       for (size_t y = 0; y < 28; ++y)
         for (size_t t = 0; t < 10; ++t) {
-          images.at(x, y, t) = X->next->params[x + 28 * y + (28 * 28 + 1) * t];
+          images.at(x, y, t) =
+              X->outputs[0]->params[x + 28 * y + (28 * 28 + 1) * t];
         }
     std::ofstream("live.ppm") << image_PGM(images);
   }
@@ -231,7 +232,7 @@ TEST(MNIST, CNN) {
     model.Train(0.001f, 1000);
     std::cerr << '\r' << i << ") error = " << model.LastError() << std::flush;
 
-    std::ofstream("live.pgm") << image_PPM(X->next->params);
+    std::ofstream("live.pgm") << image_PPM(X->outputs[0]->params);
   }
   std::cerr << std::endl;
   std::cerr << "error model  = " << model.ErrorInteger() << std::endl;
@@ -298,6 +299,11 @@ TEST(MNIST, WGAN) {
 
   auto discriminator_input = a.Input({28, 28, 1});
   auto discriminator_output = discriminator(discriminator_input);
+  Node* discriminator_first = discriminator_input->outputs[0];
+  Graph gen_graph(generator_output);
+  Graph disc_graph(discriminator_output);
+  Adam opt_g(gen_graph.TrainableNodes());
+  Adam opt_d(disc_graph.TrainableNodes());
 
   bool is_discriminative_network_loaded = false;
 
@@ -305,14 +311,13 @@ TEST(MNIST, WGAN) {
   std::mt19937 random_generator(seed());
 
   // Generate example references.
-  std::vector<Example> examples_reference;
+  std::vector<Tensor> reference_latents;
   for (size_t i = 0; i < 16; ++i) {
-    auto input = Tensor::Random(generator_input->output[0].sizes);
-    auto output = Tensor({1});
-    output.values = {1.f};
-    examples_reference.push_back({input, output});
+    reference_latents.push_back(
+        Tensor::Random(generator_input->output[0].sizes));
   }
 
+  constexpr size_t kBatch = 64;
   std::vector<Example> examples;
   for (size_t iteration = 1; iteration < 1000000; ++iteration) {
     std::vector<Tensor> generated;
@@ -321,97 +326,74 @@ TEST(MNIST, WGAN) {
 
     // Train the generative network.
     {
-      // Connect the two network.
-      Node::Link(generator_output, discriminator_input->next);
-
-      // Do not train on the discriminative network.
-      Range(discriminator_input, discriminator_output).Apply(&Node::Lock);
+      discriminator_first->SetInput(0, generator_output);
+      Graph full_graph(discriminator_output);
 
       if (!is_discriminative_network_loaded) {
         is_discriminative_network_loaded = true;
-        Model(generator_input, discriminator_output)
-            .DeserializeParamsFromFile("network");
+        full_graph.LoadWeightsFromFile("network");
       } else {
-        Model(generator_input, discriminator_output)
-            .SerializeParamsToFile("network");
+        full_graph.SaveWeightsToFile("network");
       }
 
-      // Generate some examples.
-      std::vector<Example> examples;
-      for (size_t i = 0; i < Node::T; ++i) {
-        auto input = Tensor::Random(generator_input->output[0].sizes);
-        auto output = Tensor({1});
-        output.values = {1.f};
-        examples.push_back({input, output});
+      generator_input->EnsureBatchSize(kBatch);
+      for (size_t i = 0; i < kBatch; ++i) {
+        generator_input->output[i] =
+            Tensor::Random(generator_input->output[0].sizes);
       }
-
-      // Train the network.
-      auto model = Model(generator_input, discriminator_output, examples);
-      model.loss_function = LossFunction::WasserStein;
-
-      // generated.clear();
+      full_graph.Forward(kBatch, true);
+      full_graph.ZeroGrad(kBatch);
+      Tensor target_real({1});
+      target_real.values = {1.f};
       float error = 0.f;
-      for (size_t i = 0; i < examples.size(); i += Node::T) {
-        // std::cerr << " i = " << i << '\r' << std::flush;
-        model.Train(0.0005f, examples.size());
-        generated.insert(generated.end(), generator_output->output.begin(),
-                         generator_output->output.end());
-        error += model.LastError();
+      for (size_t i = 0; i < kBatch; ++i) {
+        float cur = 0.f;
+        LossFunction::WasserStein(target_real, discriminator_output->output[i],
+                                  &cur, &discriminator_output->grad[i]);
+        error += cur;
       }
-      generative_error = Node::T * error / examples.size();
-      // std::cerr << "generative_error = " << generative_error << std::endl;
-      //} while (iteration != 0 && (++i<5 || generative_error > 0.5));
-
-      // Model(generator_input,
-      // generator_output).SerializeParamsToFile("generative_conv_net");
-      // Print a generated image
+      full_graph.Backward(kBatch);
+      opt_g.Step(kBatch, 0.0005f);
+      opt_d.ZeroGrad();
+      generated.insert(generated.end(), generator_output->output.begin(),
+                       generator_output->output.begin() + kBatch);
+      generative_error = error / static_cast<float>(kBatch);
 
       // Preview ---
       {
-        // Train the network.
-        auto model =
-            Model(generator_input, discriminator_output, examples_reference);
-        model.loss_function = LossFunction::WasserStein;
-
-        model.Train(0.f, examples_reference.size());
-        generated.insert(generated.end(), generator_output->output.begin(),
-                         generator_output->output.end());
-
-        auto preview = generator_output->output;
-        preview.resize(examples_reference.size());
+        std::vector<Tensor> preview;
+        for (const auto& z : reference_latents) {
+          generator_input->output[0] = z;
+          gen_graph.Forward(1, false);
+          preview.push_back(generator_output->output[0]);
+        }
         std::ofstream("live.pgm")
             << image_PGM(Tensor::Merge(preview), -1.0, 1.0);
       }
     }
 
     // Train the discriminative network.
-    // examples.resize(examples.size() * 0.9);
-    examples.resize(0);
+    examples.clear();
     {
-      // Disconnect the two networks.
-      Node::Link(discriminator_input, discriminator_input->next);
-      Range(discriminator_input, discriminator_output).Apply(&Node::Unlock);
-      Range(discriminator_input, discriminator_output).Apply(&Node::Clear);
+      discriminator_first->SetInput(0, discriminator_input);
 
-      // Generate some examples.
       for (auto& input : generated) {
         auto output = Tensor({1});
         output.values = {-1.f};
         examples.push_back({input, output});
       }
       std::uniform_int_distribution<> random_index(0, training_set.size() - 1);
-      for (size_t i = 0; i < std::min(generated.size(), size_t(Node::T)); ++i) {
+      for (size_t i = 0; i < std::min(generated.size(), kBatch); ++i) {
         auto input = training_set[random_index(random_generator)].input;
         auto output = Tensor({1});
         output.values = {1.f};
         examples.push_back({input, output});
       }
 
-      // Train the network.
       auto model = Model(discriminator_input, discriminator_output, examples);
       model.loss_function = LossFunction::WasserStein;
-      model.post_update_function = PostUpdateFunction::ClipWeight(
-          discriminator_input, discriminator_output);
+      model.post_update_function =
+          PostUpdateFunction::ClipWeight(discriminator_output);
 
       std::shuffle(examples.begin(), examples.end(), random_generator);
       model.Train(0.001f, examples.size());
@@ -420,7 +402,7 @@ TEST(MNIST, WGAN) {
 
     std::cout << "g_error = " << generative_error << " | d_error "
               << discriminative_error << " epoch = "
-              << (iteration * float(Node::T) / training_set.size())
+              << (iteration * float(kBatch) / training_set.size())
               << std::endl;
   }
 }
@@ -469,21 +451,24 @@ TEST(MNIST, WCGAN) {
 
   auto discriminator_input = a.Input({29, 29, 1});
   auto discriminator_output = discriminator(discriminator_input);
+  Node* discriminator_first = discriminator_input->outputs[0];
+  Graph gen_graph(generator_output);
+  Graph disc_graph(discriminator_output);
+  Adam opt_g(gen_graph.TrainableNodes());
+  Adam opt_d(disc_graph.TrainableNodes());
 
   bool is_discriminative_network_loaded = false;
 
   std::random_device seed;
   std::mt19937 random_generator(seed());
 
-  // Generate example references.
-  std::vector<Example> examples_reference;
-  for (size_t i = 0; i < 16*9; ++i) {
-    auto input = Tensor::Random(generator_input->output[0].sizes);
-    auto output = Tensor({1});
-    output.values = {1.0};
-    examples_reference.push_back({input, output});
+  std::vector<Tensor> reference_latents;
+  for (size_t i = 0; i < 16 * 9; ++i) {
+    reference_latents.push_back(
+        Tensor::Random(generator_input->output[0].sizes));
   }
 
+  constexpr size_t kBatch = 16;
   std::vector<Example> examples;
   for (size_t iteration = 1; iteration < 10000; ++iteration) {
     float learning_rate = 0.03f / std::pow(iteration, 1.0 / 7.0);
@@ -494,114 +479,82 @@ TEST(MNIST, WCGAN) {
 
     // Train the generative network.
     {
-      // Connect the two network.
-      Node::Link(generator_output, discriminator_input->next);
-
-      // Do not train on the discriminative network.
-      Range(discriminator_input, discriminator_output).Apply(&Node::Lock);
-      Range(generator_input, discriminator_output).Apply(&Node::Clear);
+      discriminator_first->SetInput(0, generator_output);
+      Graph full_graph(discriminator_output);
 
       if (!is_discriminative_network_loaded) {
         is_discriminative_network_loaded = true;
-        Model(generator_input, discriminator_output)
-            .DeserializeParamsFromFile("network");
+        full_graph.LoadWeightsFromFile("network");
       } else {
-        Model(generator_input, discriminator_output)
-            .SerializeParamsToFile("network");
+        full_graph.SaveWeightsToFile("network");
       }
 
-      // Generate some examples.
-      std::vector<Example> examples;
-      for (size_t i = 0; i < 16; ++i) {
-        auto input = Tensor::Random(generator_input->output[0].sizes);
-        auto output = Tensor({1});
-        output.values = {1.0};
-        examples.push_back({input, output});
+      generator_input->EnsureBatchSize(kBatch);
+      for (size_t i = 0; i < kBatch; ++i) {
+        generator_input->output[i] =
+            Tensor::Random(generator_input->output[0].sizes);
       }
-
-      // Train the network.
-      auto model = Model(generator_input, discriminator_output, examples);
-      model.loss_function = LossFunction::WasserStein;
-      model.post_update_function = PostUpdateFunction::ClipWeight(
-          discriminator_input, discriminator_output);
-
-      // generated.clear();
+      full_graph.Forward(kBatch, true);
+      full_graph.ZeroGrad(kBatch);
+      Tensor target_real({1});
+      target_real.values = {1.0f};
       float error = 0.f;
-      for (size_t i = 0; i < examples.size(); i += Node::T) {
-        // std::cerr << " i = " << i << '\r' << std::flush;
-        model.Train(learning_rate, examples.size());
-        generated.insert(generated.end(), generator_output->output.begin(),
-                         generator_output->output.end());
-        error += model.LastError();
+      for (size_t i = 0; i < kBatch; ++i) {
+        float cur = 0.f;
+        LossFunction::WasserStein(target_real, discriminator_output->output[i],
+                                  &cur, &discriminator_output->grad[i]);
+        error += cur;
       }
-      generative_error = Node::T * error / examples.size();
-      // std::cerr << "generative_error = " << generative_error << std::endl;
-      //} while (iteration != 0 && (++i<5 || generative_error > 0.5));
-
-      // Model(generator_input,
-      // generator_output).SerializeParamsToFile("generative_conv_net");
-      // Print a generated image
+      full_graph.Backward(kBatch);
+      opt_g.Step(kBatch, learning_rate);
+      opt_d.ZeroGrad();
+      generated.insert(generated.end(), generator_output->output.begin(),
+                       generator_output->output.begin() + kBatch);
+      generative_error = error / static_cast<float>(kBatch);
 
       // Preview ---
-      //if (i++%10 == 0)
       {
-        // Train the network.
-        auto model =
-            Model(generator_input, discriminator_output, examples_reference);
-        model.loss_function = LossFunction::WasserStein;
-        model.post_update_function = PostUpdateFunction::ClipWeight(
-            discriminator_input, discriminator_output);
-
         std::vector<Tensor> preview;
-        for (size_t i = 0; i < examples_reference.size(); i += Node::T) {
-          model.Train(0.f, examples.size());
-          preview.insert(preview.end(), generator_output->output.begin(),
-                         generator_output->output.end());
+        for (const auto& z : reference_latents) {
+          generator_input->output[0] = z;
+          gen_graph.Forward(1, false);
+          preview.push_back(generator_output->output[0]);
         }
-        if (preview.size() > examples_reference.size())
-          preview.resize(examples_reference.size());
         std::stringstream number;
-        static int i = 0;
-        number << std::setw(6) << std::setfill('0') << i++;
+        static int img_idx = 0;
+        number << std::setw(6) << std::setfill('0') << img_idx++;
         std::ofstream("live_" + number.str() + ".pgm")
             << image_PGM(Tensor::Merge(preview, 16), 0.0, 1.0);
         std::ofstream("live.pgm")
             << image_PGM(Tensor::Merge(preview, 16), 0.0, 1.0);
         std::ofstream("params.pgm")
-            << image_PGM(discriminator_input->next->params);
+            << image_PGM(discriminator_first->params);
       }
     }
 
     // Train the discriminative network.
-    // examples.resize(examples.size() * 0.9);
-    examples.resize(0);
+    examples.clear();
     {
-      // Disconnect the two networks.
-      Node::Link(discriminator_input, discriminator_input->next);
-      Range(discriminator_input, discriminator_output).Apply(&Node::Unlock);
-      Range(discriminator_input, discriminator_output).Apply(&Node::Clear);
+      discriminator_first->SetInput(0, discriminator_input);
 
-      // Generate some examples.
       for (auto& input : generated) {
         auto output = Tensor({1});
         output.values = {-1.f};
         examples.push_back({input, output});
       }
       std::uniform_int_distribution<> random_index(0, training_set.size() - 1);
-      for (size_t i = 0; i < std::min(generated.size(), size_t(Node::T)); ++i) {
+      for (size_t i = 0; i < std::min(generated.size(), kBatch); ++i) {
         auto input = training_set[random_index(random_generator)].input;
         auto output = Tensor({1});
-        output.values = {1.0};
+        output.values = {1.0f};
         examples.push_back({input, output});
       }
 
-      // Train the network.
       auto model = Model(discriminator_input, discriminator_output, examples);
       model.loss_function = LossFunction::WasserStein;
-      model.post_update_function = PostUpdateFunction::ClipWeight(
-          discriminator_input->next, discriminator_output);
+      model.post_update_function =
+          PostUpdateFunction::ClipWeight(discriminator_output);
 
-      // std::shuffle(examples.begin(), examples.end(), random_generator);
       model.Train(learning_rate * 5.f, examples.size());
       discriminative_error = model.LastError();
     }
@@ -609,7 +562,7 @@ TEST(MNIST, WCGAN) {
     std::cout << "| g_error = " << std::setw(10) << generative_error
               << "| d_error " << std::setw(10) << discriminative_error
               << "| epoch = "
-              << (iteration * float(Node::T) / training_set.size())
+              << (iteration * float(kBatch) / training_set.size())
               << std::endl;
   }
 }

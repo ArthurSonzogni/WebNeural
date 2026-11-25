@@ -474,6 +474,29 @@ pre {
   margin: 0;
 }
 
+.code-block {
+  background: #f6f8fa;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin: 8px 0 18px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #1f2328;
+}
+
+.code-block:last-child {
+  margin-bottom: 0;
+}
+
+.code-block .kw { color: #cf222e; font-weight: 500; }
+.code-block .ty { color: #0550ae; }
+.code-block .fn { color: #8250df; }
+.code-block .num { color: #0550ae; }
+.code-block .cm { color: #6e7781; font-style: italic; }
+
 .video-wrap {
   position: relative;
   width: 100%;

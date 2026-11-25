@@ -9,9 +9,12 @@ class BatchNormalization : public Node {
   ~BatchNormalization() = default;
   void Forward(size_t batch_size) override;
   void Backward(size_t batch_size) override;
-  void SerializeParams(std::vector<float>& value) override;
-  void DeserializeParams(const std::vector<float>& value,
-                         size_t& index) override;
+  void EnsureBatchSize(size_t batch_size) override;
+  void SerializeWeights(std::vector<float>& value) const override;
+  void DeserializeWeights(const std::vector<float>& value,
+                          size_t& index) override;
+  size_t SerializedWeightCount() const override;
+
  private:
   size_t channels = 1;
   size_t spatial_size = 1;

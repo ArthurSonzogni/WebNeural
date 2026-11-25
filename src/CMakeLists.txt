@@ -5,16 +5,22 @@ add_library(main
   algorithm/WCGAN.cpp
   Allocator.cpp
   Allocator.hpp
+  Graph.cpp
+  Graph.hpp
   Image.cpp
   Image.hpp
   LossFunction.cpp
   LossFunction.hpp
   Model.cpp
   Model.hpp
+  Optimizer.cpp
+  Optimizer.hpp
   PostUpdateFunction.cpp
   PostUpdateFunction.hpp
   Tensor.cpp
   Tensor.hpp
+  node/Add.cpp
+  node/Add.hpp
   node/BatchNormalization.cpp
   node/BatchNormalization.hpp
   node/Bias.cpp
@@ -23,6 +29,8 @@ add_library(main
   node/BilinearUpsampling.hpp
   node/Border.cpp
   node/Border.hpp
+  node/Concat.cpp
+  node/Concat.hpp
   node/Convolution2D.cpp
   node/Convolution2D.hpp
   node/Deconvolution2D.cpp
@@ -71,28 +79,8 @@ if (NOT Web AND NOT MSVC)
 endif()
 
 # ┌─────────────────────────────────────────────────┐
-# │ ThinLTO                                         │
-# └─────────────────────────────────────────────────┘
-#include(CheckIPOSupported)
-#check_ipo_supported()
-#set_target_properties(main PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
-
-add_library(sse4_1 INTERFACE IMPORTED)
-if(MSVC)
-    target_compile_options(sse4_1 INTERFACE /arch:SSE4.1)
-else()
-    target_compile_options(sse4_1 INTERFACE -msse4.1)
-endif()
-
-# ┌─────────────────────────────────────────────────┐
 # │ Test                                            │
 # └─────────────────────────────────────────────────┘
-
-if (NOT Web)
-  #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-no-as-needed,-lprofiler")
-  #SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
-  #SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no-as-needed,-lprofiler")
-endif()
 
 if (NOT Web)
 
@@ -143,6 +131,7 @@ add_new_test(unit_tests
   node/LinearTest.cpp
   node/ReluTest.cpp
   node/SoftmaxTest.cpp
+  GraphTest.cpp
   ModelTest.cpp
 )
 

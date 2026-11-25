@@ -1,12 +1,14 @@
 #include "Model.hpp"
 #include <algorithm>
-#include <sstream>
-#include <fstream>
-#include <iostream>
 #include <cmath>
+#include <iostream>
 
 Model::Model(Node* input, Node* output, const std::vector<Example>& examples)
-    : input(input), output(output), examples(examples) {}
+    : input(input),
+      output(output),
+      graph(output),
+      optimizer(graph.TrainableNodes()),
+      examples(examples) {}
 
 Model::Model(Node* input, Node* output) : Model(input, output, {}) {}
 
@@ -16,44 +18,33 @@ void Model::Train(float lambda, size_t iterations) {
     return;
   }
 
-  Range(input->next, output).Apply([](Node* node) { node->training = true; });
-
-  const size_t max_batch = std::min(Node::T, std::max<size_t>(1, batch_size));
-  std::vector<Tensor> error_sensitivity(Node::T,
-                                        Tensor(output->output[0].sizes));
+  const size_t max_batch = std::max<size_t>(1, batch_size);
   float sum_error = 0.f;
   for (size_t i = 0; i < iterations;) {
     size_t elements = std::min(max_batch, iterations - i);
 
     // Feed the neural network.
+    input->EnsureBatchSize(elements);
     for (size_t t = 0; t < elements; ++t) {
       input->output[t] = examples[(iteration + t) % examples.size()].input;
     }
 
-    // Make a prediction.
-    Range(input->next, output).Apply([&](Node* node) {
-      node->Forward(elements);
-    });
+    // Forward pass.
+    graph.Forward(elements, true);
 
-    // Compute the error.
+    // Clear gradients and seed output gradient from loss.
+    graph.ZeroGrad(elements);
     for (size_t t = 0; t < elements; ++t) {
       const Tensor& target = examples[(iteration + t) % examples.size()].output;
       const Tensor& current = output->output[t];
-      float current_error;
-      loss_function(target, current, &current_error, &error_sensitivity[t]);
+      float current_error = 0.f;
+      loss_function(target, current, &current_error, &output->grad[t]);
       sum_error += current_error;
-      output->output_sensitivity[t] = &(error_sensitivity[t]);
     }
 
-    // Compute the sensitivity.
-    ReverseRange(output, input->next).Apply([&](Node* node) {
-      node->Backward(elements);
-    });
-
-    // Update the network.
-    Range(input->next, output).Apply([&](Node* node) {
-      node->Update(elements, lambda);
-    });
+    // Backward pass and optimizer step.
+    graph.Backward(elements);
+    optimizer.Step(elements, lambda);
 
     post_update_function(this);
 
@@ -61,31 +52,24 @@ void Model::Train(float lambda, size_t iterations) {
     iteration += elements;
   }
 
-  last_error = sum_error / iterations;
+  last_error = sum_error / static_cast<float>(iterations);
 }
 
 Tensor Model::Predict(const Tensor& input_value) {
-  // Feed the neural network.
   input->output[0] = input_value;
-
-  // Make a prediction.
-  Range(input->next, output).Apply([](Node* node) {
-    node->training = false;
-    node->Forward(1);
-  });
-
+  graph.Forward(1, false);
   return output->output[0];
 }
 
 float Model::Error() {
   if (examples.empty())
     return 0.f;
-  float error = 0;
+  float error = 0.f;
   for (auto& example : examples) {
-    Tensor output = Predict(example.input);
-    error += (output - example.output).Error();
+    Tensor out = Predict(example.input);
+    error += (out - example.output).Error();
   }
-  error /= float(examples.size());
+  error /= static_cast<float>(examples.size());
   return error;
 }
 
@@ -94,12 +78,11 @@ float Model::ErrorInteger() {
     return 0.f;
   size_t error = 0;
   for (auto& example : examples) {
-    Tensor output = Predict(example.input);
-
-    if (output.ArgMax() != example.output.ArgMax())
+    Tensor out = Predict(example.input);
+    if (out.ArgMax() != example.output.ArgMax())
       error++;
   }
-  return error / float(examples.size());
+  return static_cast<float>(error) / static_cast<float>(examples.size());
 }
 
 float Model::LastError() {
@@ -107,59 +90,31 @@ float Model::LastError() {
 }
 
 std::vector<float> Model::SerializeParams() {
-  std::vector<float> value;
-  Range(input, output).Apply([&value](Node* node) {
-    node->SerializeParams(value);
-  });
-  return value;
+  return graph.SerializeWeights();
 }
 
 void Model::DeserializeParams(const std::vector<float>& value) {
-  size_t index = 0;
-  Range(input, output).Apply([&value, &index](Node* node) {
-    node->DeserializeParams(value, index);
-  });
-}
-
-static std::ifstream::pos_type FileSize(const std::string& filename) {
-  return std::ifstream(filename, std::ifstream::ate | std::ifstream::binary)
-      .tellg();
+  graph.DeserializeWeights(value);
+  optimizer.Reset();
 }
 
 void Model::SerializeParamsToFile(const std::string& filename) {
-  std::ofstream file(filename, std::ios::binary);
-  if (!file.is_open())
-    return;
-  auto data = SerializeParams();
-  if (!data.empty()) {
-    file.write(reinterpret_cast<const char*>(data.data()),
-               data.size() * sizeof(float));
-  }
+  graph.SaveWeightsToFile(filename);
 }
 
 void Model::DeserializeParamsFromFile(const std::string& filename) {
-  auto file_size = FileSize(filename);
-  if (file_size > 0) {
-    const size_t num_floats = static_cast<size_t>(file_size) / sizeof(float);
-    if (num_floats == 0)
-      return;
-    std::ifstream file(filename, std::ios::binary);
-    if (!file.is_open())
-      return;
-    std::vector<float> data(num_floats);
-    file.read(reinterpret_cast<char*>(data.data()), num_floats * sizeof(float));
-    DeserializeParams(data);
-  }
+  graph.LoadWeightsFromFile(filename);
+  optimizer.Reset();
 }
-  
+
 void Model::PrintGradient() {
-  Range(input->next, output).Apply([&](Node* node) {
+  for (Node* node : graph.TrainableNodes()) {
     float sum_X = 0.f;
     float sum_1 = 0.f;
-    for(auto& v : node->params.values) {
-      sum_X += v*v;
-      sum_1 += 1.0;
+    for (auto& v : node->params.values) {
+      sum_X += v * v;
+      sum_1 += 1.f;
     }
     std::cerr << "Layer = " << std::sqrt(sum_X / sum_1) << std::endl;
-  });
+  }
 }

@@ -1,194 +1,82 @@
-#include <iostream>
 #include "Node.hpp"
 #include <algorithm>
-#include <cmath>
 #include <stdexcept>
 
-static constexpr float ADAM_b2 = 0.99f;
-static constexpr float ADAM_epsilon = 1e-8f;
-constexpr size_t Node::T;
-
-void Node::Update(size_t batch_size, float lambda) {
-  InitIfNeeded();
-  if (batch_size == 0)
-    return;
-
-  const size_t ps_count = ps_batches_used > 0 ? ps_batches_used : batch_size;
-  ps_batches_used = 0;
-
-  if (locked) {
-    for (size_t batch = 0; batch < ps_count; ++batch) {
-      params_sensitivity[batch].Fill(0.f);
-    }
-    return;
+void Node::AddInput(Node* input_node) {
+  inputs.push_back(input_node);
+  if (input_node) {
+    input_node->outputs.push_back(this);
   }
-  n += 1;
+}
 
-  const size_t params_size = params.values.size();
-  if (params_size == 0)
-    return;
-
-  const float inv_batch = 1.f / static_cast<float>(batch_size);
-  const float b1 = beta1;
-  const float corr1 =
-      b1 > 0.f ? 1.f / (1.f - std::pow(b1, static_cast<float>(n))) : 1.f;
-  const float corr2 = 1.f / (1.f - std::pow(ADAM_b2, static_cast<float>(n)));
-  float* __restrict__ p_ptr = params.values.data();
-  float* __restrict__ m_ptr = momentum.values.data();
-  float* __restrict__ ssg_ptr = smoothed_squared_gradient.values.data();
-
-  if (ps_count == 1) {
-    float* __restrict__ ps_ptr = params_sensitivity[0].values.data();
-    #pragma omp parallel for if(params_size >= 4096)
-    for (size_t p = 0; p < params_size; ++p) {
-      const float g = ps_ptr[p] * inv_batch;
-      ps_ptr[p] = 0.f;
-      const float m = b1 * m_ptr[p] + (1.f - b1) * g;
-      const float v = ADAM_b2 * ssg_ptr[p] + (1.f - ADAM_b2) * g * g;
-      m_ptr[p] = m;
-      ssg_ptr[p] = v;
-      p_ptr[p] -= lambda * (m * corr1) / (std::sqrt(v * corr2) + ADAM_epsilon);
-    }
-    return;
+void Node::SetInput(size_t index, Node* new_input) {
+  if (index >= inputs.size()) {
+    throw std::out_of_range("Node::SetInput index out of range");
   }
+  Node* old_input = inputs[index];
+  if (old_input) {
+    auto& outs = old_input->outputs;
+    outs.erase(std::remove(outs.begin(), outs.end(), this), outs.end());
+  }
+  inputs[index] = new_input;
+  if (new_input) {
+    new_input->outputs.push_back(this);
+  }
+}
 
-  // Gather params_sensitivity into reusable ps_buffer without heap allocation.
-  float* __restrict__ ps_buf = ps_buffer.values.data();
-  std::fill_n(ps_buf, params_size, 0.f);
-  for (size_t batch = 0; batch < ps_count; ++batch) {
-    float* __restrict__ src = params_sensitivity[batch].values.data();
-    #pragma omp simd
-    for (size_t p = 0; p < params_size; ++p) {
-      ps_buf[p] += src[p];
-      src[p] = 0.f;
+void Node::InitBuffers(const std::vector<size_t>& output_sizes) {
+  output = {Tensor(output_sizes)};
+  grad = {Tensor(output_sizes)};
+  if (!params.values.empty()) {
+    params_grad = Tensor(params.sizes);
+  }
+}
+
+void Node::EnsureBatchSize(size_t batch_size) {
+  if (output.empty())
+    return;
+  const std::vector<size_t> sizes = output[0].sizes;
+  if (output.size() < batch_size) {
+    output.reserve(batch_size);
+    while (output.size() < batch_size) {
+      output.emplace_back(sizes);
     }
   }
-
-  // Adam (beta1 > 0) or RMSProp (beta1 == 0) update with bias correction.
-  #pragma omp parallel for if(params_size >= 4096)
-  for (size_t p = 0; p < params_size; ++p) {
-    const float g = ps_buf[p] * inv_batch;
-    const float m = b1 * m_ptr[p] + (1.f - b1) * g;
-    const float v = ADAM_b2 * ssg_ptr[p] + (1.f - ADAM_b2) * g * g;
-    m_ptr[p] = m;
-    ssg_ptr[p] = v;
-    p_ptr[p] -= lambda * (m * corr1) / (std::sqrt(v * corr2) + ADAM_epsilon);
+  if (grad.size() < batch_size) {
+    grad.reserve(batch_size);
+    while (grad.size() < batch_size) {
+      grad.emplace_back(sizes);
+    }
   }
 }
 
-// static
-void Node::Link(Node* previous, Node* next) {
-  // Make them refer to each other.
-  previous->next = next;
-  next->previous = previous;
-
-  // Resize in case they are null.
-  previous->output.resize(T);
-  previous->output_sensitivity.resize(T);
-  next->input.resize(T);
-  next->input_sensitivity.resize(T);
-
-  // Link for each batch.
-  for (size_t batch = 0; batch < T; ++batch) {
-    next->input[batch] = &(previous->output[batch]);
-    previous->output_sensitivity[batch] = &(next->input_sensitivity[batch]);
+void Node::ZeroGrad(size_t batch_size) {
+  EnsureBatchSize(batch_size);
+  for (size_t b = 0; b < batch_size; ++b) {
+    grad[b].Fill(0.f);
   }
 }
 
-void Node::InitInternalSensitivity() {
-  input_sensitivity = std::vector<Tensor>(T, Tensor(input[0]->sizes));
-  params_sensitivity = std::vector<Tensor>(T, Tensor(params.sizes));
-  output_sensitivity = std::vector<Tensor*>(T, nullptr);
-  Link(previous);
-}
-
-void Node::Link(Node* previous) {
-  Link(previous, this);
-}
-
-void Node::InitIfNeeded() {
-  if (initiated)
-    return;
-  initiated = true;
-  momentum = Tensor(params.sizes);
-  momentum.Fill(0.f);
-  smoothed_squared_gradient = Tensor(params.sizes);
-  smoothed_squared_gradient.Fill(0.f);
-  ps_buffer = Tensor(params.sizes);
-  ps_buffer.Fill(0.f);
-}
-
-void Node::Clear() {
-  for (size_t batch = 0; batch < T; ++batch) {
-    params_sensitivity[batch].Fill(0.f);
-  }
-  //momentum.Fill(0.f);
-  //smoothed_squared_gradient.Fill(0.f);
-}
-
-void Range::Apply(const std::function<void(Node*)>& fun) {
-  Node* node = first;
-  while (true) {
-    fun(node);
-    if (node == last)
-      break;
-    node = node->next;
+void Node::ZeroParamGrad() {
+  if (!params_grad.values.empty()) {
+    params_grad.Fill(0.f);
   }
 }
 
-void Range::Apply(void (Node::*f)()) {
-  Node* node = first;
-  while (true) {
-    (node->*f)();
-    if (node == last)
-      break;
-    node = node->next;
-  }
+size_t Node::SerializedWeightCount() const {
+  return params.values.size();
 }
 
-void ReverseRange::Apply(const std::function<void(Node*)>& fun) {
-  Node* node = first;
-  while (true) {
-    fun(node);
-    if (node == last)
-      break;
-    node = node->previous;
-  }
+void Node::SerializeWeights(std::vector<float>& value) const {
+  value.insert(value.end(), params.values.begin(), params.values.end());
 }
 
-void ReverseRange::Apply(void (Node::*f)()) {
-  Node* node = first;
-  while (true) {
-    (node->*f)();
-    if (node == last)
-      break;
-    node = node->previous;
-  }
-}
-
-void Node::SerializeParams(std::vector<float>& value) {
-  InitIfNeeded();
-
-  for (auto& p : params.values)
-    value.push_back(p);
-  for (auto& p : smoothed_squared_gradient.values)
-    value.push_back(p);
-  for (auto& p : momentum.values)
-    value.push_back(p);
-}
-
-void Node::DeserializeParams(const std::vector<float>& value, size_t& index) {
-  InitIfNeeded();
-  const size_t required = params.values.size() +
-                          smoothed_squared_gradient.values.size() +
-                          momentum.values.size();
+void Node::DeserializeWeights(const std::vector<float>& value, size_t& index) {
+  const size_t required = params.values.size();
   if (index > value.size() || value.size() - index < required) {
-    throw std::out_of_range("Serialized params buffer is too small");
+    throw std::out_of_range("Serialized weights buffer is too small");
   }
-  for (auto& p : params.values)
+  for (auto& p : params.values) {
     p = value[index++];
-  for (auto& p : smoothed_squared_gradient.values)
-    p = value[index++];
-  for (auto& p : momentum.values)
-    p = value[index++];
+  }
 }

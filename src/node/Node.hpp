@@ -1,82 +1,49 @@
 #ifndef NODE_H
 #define NODE_H
 
-#include <functional>
+#include <cstddef>
+#include <vector>
 #include "Tensor.hpp"
 
 class Node {
  public:
-  static constexpr size_t T = 64;
-
   Node() = default;
   virtual ~Node() = default;
 
-  // Node internal state.
+  // DAG connectivity.
+  std::vector<Node*> inputs;
+  std::vector<Node*> outputs;
+
+  // Trainable parameters and accumulated parameter gradient.
   Tensor params;
+  Tensor params_grad;
 
-  // Forward step
-  std::vector<Tensor*> input;
+  // Per-batch forward outputs and output gradients (dL / d(output)).
+  // Lazily grown via EnsureBatchSize(batch_size); slot 0 is always present.
   std::vector<Tensor> output;
+  std::vector<Tensor> grad;
 
-  // Backward
-  std::vector<Tensor> input_sensitivity;
-  std::vector<Tensor> params_sensitivity;
-  std::vector<Tensor*> output_sensitivity;
+  bool training = true;
 
   virtual void Forward(size_t batch_size) = 0;
+  // Backward MUST accumulate (+=) into each inputs[k]->grad[batch] and
+  // into params_grad (when the node has parameters).
   virtual void Backward(size_t batch_size) = 0;
-  void Update(size_t batch_size, float lambda);
 
-  Node* next = nullptr;
-  Node* previous = nullptr;
+  virtual void EnsureBatchSize(size_t batch_size);
+  void ZeroGrad(size_t batch_size);
+  void ZeroParamGrad();
+  void SetInput(size_t index, Node* new_input);
 
-  bool locked = false;  // Do not update.
-  bool training = true;
-  float beta1 = 0.9f;
-  void Lock() { locked = true; }
-  void Unlock() { locked = false; }
-  void Clear();
-
-  static void Link(Node* previous, Node* next);
-
-  virtual void SerializeParams(std::vector<float>& value);
-  virtual void DeserializeParams(const std::vector<float>& value, size_t& index);
+  // Compact weight-only serialization (params + non-trainable state like BN).
+  virtual void SerializeWeights(std::vector<float>& value) const;
+  virtual void DeserializeWeights(const std::vector<float>& value,
+                                  size_t& index);
+  virtual size_t SerializedWeightCount() const;
 
  protected:
-  void Link(Node* previous);
-  void InitInternalSensitivity();
-  size_t ps_batches_used = 0;
-
- private:
-  void InitIfNeeded();
-  bool initiated = false;
-  Tensor smoothed_squared_gradient;
-  Tensor momentum;
-  Tensor ps_buffer;
-
-  size_t n = 0;
-};
-
-class Range {
- public:
-  Range(Node* first, Node* last) : first(first), last(last) {}
-  void Apply(const std::function<void(Node*)>& f);
-  void Apply(void (Node::*f)());
-
- private:
-  Node* first;
-  Node* last;
-};
-
-class ReverseRange {
- public:
-  ReverseRange(Node* first, Node* last) : first(first), last(last) {}
-  void Apply(const std::function<void(Node*)>& f);
-  void Apply(void (Node::*f)());
-
- private:
-  Node* first;
-  Node* last;
+  void AddInput(Node* input_node);
+  void InitBuffers(const std::vector<size_t>& output_sizes);
 };
 
 #endif /* end of include guard: NODE_H */

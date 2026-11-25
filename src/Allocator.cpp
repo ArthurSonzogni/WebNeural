@@ -1,8 +1,10 @@
 #include "Allocator.hpp"
+#include "node/Add.hpp"
 #include "node/BatchNormalization.hpp"
 #include "node/Bias.hpp"
 #include "node/BilinearUpsampling.hpp"
 #include "node/Border.hpp"
+#include "node/Concat.hpp"
 #include "node/Convolution2D.hpp"
 #include "node/Deconvolution2D.hpp"
 #include "node/Dropout.hpp"
@@ -104,5 +106,15 @@ Node* Allocator::Noise(Node* input, float sigma) {
 
 Node* Allocator::Border(Node* input, size_t border_size, float value) {
   nodes.emplace_back(new ::Border(input, border_size, value));
+  return nodes.back().get();
+}
+
+Node* Allocator::Add(Node* a, Node* b) {
+  nodes.emplace_back(new ::Add(a, b));
+  return nodes.back().get();
+}
+
+Node* Allocator::Concat(Node* a, Node* b) {
+  nodes.emplace_back(new ::Concat(a, b));
   return nodes.back().get();
 }

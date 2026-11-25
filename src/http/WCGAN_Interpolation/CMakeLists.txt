@@ -1,8 +1,6 @@
 if (Web)
   file(READ style.css style)
   file(READ main.js script)
-  file(READ snippet/headercpp.html headercpp)
-  file(READ snippet/networkcpp.html networkcpp)
 
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/figure.svg

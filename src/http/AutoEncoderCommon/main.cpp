@@ -40,14 +40,26 @@ std::vector<Example> training_set =
 #endif
 
 Allocator a;
+auto res_block = [](Node* X, size_t channels) {
+  Node* h = a.Deconvolution2D(X, {3, 3}, channels, 1);
+  h = a.BatchNormalization(h);
+  h = a.LeakyRelu(h);
+  h = a.Convolution2D(h, {3, 3}, channels, 1);
+  h = a.BatchNormalization(h);
+  return a.LeakyRelu(a.Add(X, h));
+};
+
 auto compress = [](Node* X) {
   X = a.Convolution2D(X, {5, 5}, 12, 2);  // 12x12x12
+  X = a.BatchNormalization(X);
   X = a.LeakyRelu(X);
 
   X = a.Convolution2D(X, {4, 4}, 24, 2);  // 5x5x24
+  X = a.BatchNormalization(X);
   X = a.LeakyRelu(X);
 
   X = a.Convolution2D(X, {3, 3}, 48, 2);  // 2x2x48
+  X = a.BatchNormalization(X);
   X = a.LeakyRelu(X);
 
   X = a.Linear(X, {10});
@@ -57,16 +69,24 @@ auto compress = [](Node* X) {
 
 auto decompress = [](Node* X) {
   X = a.Noise(X, 0.02f);                  // Latent regularization (training only)
-  X = a.Linear(X, {2, 2, 48});
+  X = a.Linear(X, {4, 4, 48});
+  X = a.BatchNormalization(X);
   X = a.LeakyRelu(X);
 
-  X = a.Deconvolution2D(X, {3, 3}, 24, 2);  // 5x5x24
+  X = a.BilinearUpsampling(X);            // 9x9x48
+  X = a.Convolution2D(X, {3, 3}, 24, 1);  // 7x7x24
+  X = a.BatchNormalization(X);
   X = a.LeakyRelu(X);
 
-  X = a.Deconvolution2D(X, {4, 4}, 12, 2);  // 12x12x12
+  X = res_block(X, 24);                   // 7x7x24 residual skip (Add)
+
+  X = a.BilinearUpsampling(X);            // 15x15x24
+  X = a.Convolution2D(X, {2, 2}, 16, 1);  // 14x14x16
+  X = a.BatchNormalization(X);
   X = a.LeakyRelu(X);
 
-  X = a.Deconvolution2D(X, {5, 5}, 1, 2);   // 27x27x1
+  X = a.BilinearUpsampling(X);            // 29x29x16
+  X = a.Convolution2D(X, {3, 3}, 1, 1);   // 27x27x1
   X = a.Sigmoid(X);
   return X;
 };
@@ -120,10 +140,7 @@ void LastOutput(uint8_t* _output) {
 
 void Predict(double* _input, uint8_t* _output) {
   Import(latent->output[0], _input);
-  Range(latent->next, output).Apply([](Node* node) {
-    node->training = false;
-    node->Forward(1);
-  });
+  model.graph.ForwardAfter(latent, 1, false);
   Export(output->output[0], _output);
 }
 

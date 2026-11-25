@@ -59,6 +59,11 @@ TEST(GAN, spiral) {
 
   auto discriminator_input = a.Input({2});
   auto discriminator_output = discriminator(discriminator_input);
+  Node* discriminator_first = discriminator_input->outputs[0];
+  Graph gen_graph(generator_output);
+  Graph disc_graph(discriminator_output);
+  Adam opt_g(gen_graph.TrainableNodes());
+  Adam opt_d(disc_graph.TrainableNodes());
 
   float generator_loss = 0.f;
   float discriminator_loss = 0.f;
@@ -67,65 +72,60 @@ TEST(GAN, spiral) {
     // │Train the generator│
     // └───────────────────┘
 
-    // Connect the two network.
-    Node::Link(generator_output, discriminator_input->next);
+    // Connect the two networks.
+    discriminator_first->SetInput(0, generator_output);
+    Graph full_graph(discriminator_output);
 
-    // Do not learn on the discriminative part.
-    Range(discriminator_input, discriminator_output).Apply(&Node::Lock);
-    Range(generator_input, discriminator_output).Apply(&Node::Clear);
-
-    // Generate some examples.
-    std::vector<Example> generator_examples;
-    for (size_t i = 0; i < 64; ++i) {
-      auto input = Tensor::Random(generator_input->output[0].sizes);
-      auto output = Tensor({1});
-      output.values = {1};  // 1 means 'real'
-      generator_examples.push_back({input, output});
+    const size_t batch = 64;
+    generator_input->EnsureBatchSize(batch);
+    for (size_t i = 0; i < batch; ++i) {
+      generator_input->output[i] =
+          Tensor::Random(generator_input->output[0].sizes);
     }
 
-    // Train
-    Model model_generator(generator_input, discriminator_output,
-                          generator_examples);
-    model_generator.loss_function = LossFunction::WasserStein;
-    model_generator.Train(0.00005f, generator_examples.size());
-    generator_loss = model_generator.LastError();
+    full_graph.Forward(batch, true);
+    full_graph.ZeroGrad(batch);
+    Tensor target_real({1});
+    target_real.values = {1.f};
+    float g_err = 0.f;
+    for (size_t i = 0; i < batch; ++i) {
+      float cur = 0.f;
+      LossFunction::WasserStein(target_real, discriminator_output->output[i],
+                                &cur, &discriminator_output->grad[i]);
+      g_err += cur;
+    }
+    full_graph.Backward(batch);
+    opt_g.Step(batch, 0.00005f);
+    opt_d.ZeroGrad();
+    generator_loss = g_err / static_cast<float>(batch);
 
     // ┌───────────────────────┐
     // │Train the discriminator│
     // └───────────────────────┘
 
-    // Disconnect the two network.
-    Node::Link(discriminator_input, discriminator_input->next);
+    // Disconnect the two networks.
+    discriminator_first->SetInput(0, discriminator_input);
 
-    // Unlock learning on the discriminator part.
-    Range(discriminator_input, discriminator_output).Apply(&Node::Unlock);
-    Range(discriminator_input, discriminator_output).Apply(&Node::Clear);
-
-    // Generator some examples.
+    // Generate some examples.
     std::vector<Example> discriminator_examples;
-    for (auto& generator_output : generator_output->output) {
-      // Make one fake example.
-      auto fake_input = generator_output;
-
+    for (size_t i = 0; i < batch; ++i) {
       auto fake_output = Tensor({1});
-      fake_output.values = {-1.0};  // -1 means 'fake'.
-      discriminator_examples.push_back({fake_input, fake_output});
+      fake_output.values = {-1.0f};  // -1 means 'fake'.
+      discriminator_examples.push_back({generator_output->output[i], fake_output});
     }
 
-    for (auto& generator_output : generator_output->output) {
-      generator_output.Fill(0.f);
-      // Make one real example.
-      auto real_input = goal(); 
+    for (size_t i = 0; i < batch; ++i) {
+      auto real_input = goal();
       auto real_output = Tensor({1});
-      real_output.values = {1.0};  // 1 means 'real';
+      real_output.values = {1.0f};  // 1 means 'real';
       discriminator_examples.push_back({real_input, real_output});
     }
 
     Model model_discriminator(discriminator_input, discriminator_output,
                               discriminator_examples);
     model_discriminator.loss_function = LossFunction::WasserStein;
-    model_discriminator.post_update_function = PostUpdateFunction::ClipWeight(
-        discriminator_input, discriminator_output);
+    model_discriminator.post_update_function =
+        PostUpdateFunction::ClipWeight(discriminator_output);
     model_discriminator.Train(0.001f, discriminator_examples.size());
     discriminator_loss = model_discriminator.LastError();
 
@@ -162,9 +162,7 @@ TEST(GAN, spiral) {
     constexpr size_t n = width * height / 20;
     for(size_t i = 0; i<n; ++i) {
       generator_input->output[0].Randomize();
-      Range(generator_input->next, generator_output).Apply([](Node* node) {
-          node->Forward(1);
-      });
+      gen_graph.Forward(1, false);
 
       float x = generator_output->output[0][0];
       float y = generator_output->output[0][1];
@@ -196,9 +194,7 @@ TEST(GAN, spiral) {
         float X = float(x) / width * (x_max - x_min) + x_min;
         float Y = float(y) / height * (y_max - y_min) + y_min;
         discriminator_input->output[0].values = {X, Y};
-
-        Range(discriminator_input->next, discriminator_output)
-            .Apply([](Node* node) { node->Forward(1); });
+        disc_graph.Forward(1, false);
 
         discriminator_map.at(x, y) = discriminator_output->output[0][0];
       }

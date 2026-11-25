@@ -100,11 +100,77 @@
       </div>
 
       <div class="card">
-        <h2>Network C++</h2>
-        <h3>Headers</h3>
-        @headercpp@
-        <h3>Network</h3>
-        @networkcpp@
+        <h2>C++ Network &amp; DAG Code</h2>
+        <h3>Generator (Residual + Bilinear Upsampling + BatchNorm) &amp; Discriminator</h3>
+        <pre class="code-block"><code><span class="ty">Allocator</span> a;
+
+<span class="kw">auto</span> res_block = [](<span class="ty">Node</span>* X, <span class="ty">size_t</span> channels) {
+  <span class="ty">Node</span>* h = a.<span class="fn">Deconvolution2D</span>(X, {<span class="num">3</span>, <span class="num">3</span>}, channels, <span class="num">1</span>);
+  h = a.<span class="fn">BatchNormalization</span>(h);
+  h = a.<span class="fn">LeakyRelu</span>(h);
+  h = a.<span class="fn">Convolution2D</span>(h, {<span class="num">3</span>, <span class="num">3</span>}, channels, <span class="num">1</span>);
+  h = a.<span class="fn">BatchNormalization</span>(h);
+  <span class="kw">return</span> a.<span class="fn">LeakyRelu</span>(a.<span class="fn">Add</span>(X, h));
+};
+
+<span class="kw">auto</span> generator = [](<span class="ty">Node</span>* X) {
+  X = a.<span class="fn">Linear</span>(X, {<span class="num">4</span>, <span class="num">4</span>, <span class="num">32</span>});
+  X = a.<span class="fn">BatchNormalization</span>(X);
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">BilinearUpsampling</span>(X);            <span class="cm">// 9x9x32</span>
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">2</span>, <span class="num">2</span>}, <span class="num">24</span>, <span class="num">1</span>);  <span class="cm">// 8x8x24</span>
+  X = a.<span class="fn">BatchNormalization</span>(X);
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = <span class="fn">res_block</span>(X, <span class="num">24</span>);                   <span class="cm">// 8x8x24 residual</span>
+
+  X = a.<span class="fn">BilinearUpsampling</span>(X);            <span class="cm">// 17x17x24</span>
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">3</span>, <span class="num">3</span>}, <span class="num">16</span>, <span class="num">1</span>);  <span class="cm">// 15x15x16</span>
+  X = a.<span class="fn">BatchNormalization</span>(X);
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">BilinearUpsampling</span>(X);            <span class="cm">// 31x31x16</span>
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">3</span>, <span class="num">3</span>}, <span class="num">1</span>, <span class="num">1</span>);   <span class="cm">// 29x29x1</span>
+  X = a.<span class="fn">Sigmoid</span>(X);
+  <span class="kw">return</span> X;
+};
+
+<span class="kw">auto</span> discriminator = [](<span class="ty">Node</span>* X) {
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">4</span>, <span class="num">4</span>}, <span class="num">16</span>, <span class="num">1</span>);  <span class="cm">// 26x26x16</span>
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">4</span>, <span class="num">4</span>}, <span class="num">24</span>, <span class="num">2</span>);  <span class="cm">// 12x12x24</span>
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">Convolution2D</span>(X, {<span class="num">4</span>, <span class="num">4</span>}, <span class="num">32</span>, <span class="num">2</span>);  <span class="cm">// 5x5x32</span>
+  X = a.<span class="fn">LeakyRelu</span>(X);
+
+  X = a.<span class="fn">Linear</span>(X, {<span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>});             <span class="cm">// real vs fake</span>
+  X = a.<span class="fn">Sigmoid</span>(X);
+  <span class="kw">return</span> X;
+};
+
+<span class="kw">auto</span> gen_in  = a.<span class="fn">Input</span>({<span class="num">10</span>});             <span class="kw">auto</span> gen_out  = <span class="fn">generator</span>(gen_in);
+<span class="kw">auto</span> disc_in = a.<span class="fn">Input</span>({<span class="num">29</span>, <span class="num">29</span>, <span class="num">1</span>});      <span class="kw">auto</span> disc_out = <span class="fn">discriminator</span>(disc_in);
+<span class="ty">Node</span>* disc_first = disc_in-&gt;outputs[<span class="num">0</span>];</code></pre>
+
+        <h3>Adversarial Step with Independent Optimizers &amp; DAG Rewiring</h3>
+        <pre class="code-block"><code><span class="ty">Graph</span> gen_graph(gen_out), disc_graph(disc_out);
+<span class="ty">Adam</span> opt_g(gen_graph.<span class="fn">TrainableNodes</span>(), <span class="num">0.5f</span>);  <span class="cm">// DCGAN beta1 = 0.5</span>
+<span class="ty">Adam</span> opt_d(disc_graph.<span class="fn">TrainableNodes</span>(), <span class="num">0.5f</span>);
+
+<span class="cm">// Generator step: plug generator output directly into discriminator,</span>
+<span class="cm">// backpropagate through both, and step ONLY opt_g.</span>
+disc_first-&gt;<span class="fn">SetInput</span>(<span class="num">0</span>, gen_out);
+<span class="ty">Graph</span> full_graph(disc_out);
+full_graph.<span class="fn">Forward</span>(batch, <span class="kw">true</span>);
+full_graph.<span class="fn">ZeroGrad</span>(batch);
+<span class="cm">// ... seed disc_out-&gt;grad with BinaryCrossEntropy(target=1.0) ...</span>
+full_graph.<span class="fn">Backward</span>(batch);
+opt_g.<span class="fn">Step</span>(batch, lr);
+opt_d.<span class="fn">ZeroGrad</span>();
+disc_first-&gt;<span class="fn">SetInput</span>(<span class="num">0</span>, disc_in);  <span class="cm">// restore standalone discriminator</span></code></pre>
       </div>
 
       <div class="card">

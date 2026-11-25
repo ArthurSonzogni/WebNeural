@@ -1,6 +1,7 @@
-#include <iostream>
 #include "node/Convolution2D.hpp"
+#include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <stdexcept>
 
 Convolution2D::Convolution2D(Node* node,
@@ -8,21 +9,20 @@ Convolution2D::Convolution2D(Node* node,
                              size_t num_features,
                              size_t stride)
     : stride(stride) {
-  Link(node);
-  
+  AddInput(node);
 
-  // clang-format off
+  const Tensor& in0 = inputs[0]->output[0];
   size_input = {
-    input[0]->sizes[0],
-    input[0]->sizes[1],
-    input[0]->values.size() / (input[0]->sizes[0] * input[0]->sizes[1]),
+      in0.sizes[0],
+      in0.sizes[1],
+      in0.values.size() / (in0.sizes[0] * in0.sizes[1]),
   };
 
   size_params = {
-    sizes[0],
-    sizes[1],
-    size_input[2],
-    num_features,
+      sizes[0],
+      sizes[1],
+      size_input[2],
+      num_features,
   };
 
   if (stride == 0) {
@@ -33,24 +33,24 @@ Convolution2D::Convolution2D(Node* node,
   }
 
   if ((size_input[0] - size_params[0]) % stride != 0) {
-    std::cerr << "Error line = " << __LINE__ << " " << size_input[0] << " " << size_params[0] << " " << stride << std::endl;
+    std::cerr << "Error line = " << __LINE__ << " " << size_input[0] << " "
+              << size_params[0] << " " << stride << std::endl;
   }
   if ((size_input[1] - size_params[1]) % stride != 0) {
-    std::cerr << "Error line = " << __LINE__ << " " << size_input[1] << " " << size_params[1] << " " << stride << std::endl;
+    std::cerr << "Error line = " << __LINE__ << " " << size_input[1] << " "
+              << size_params[1] << " " << stride << std::endl;
   }
 
   size_output = {
-    (size_input[0] - size_params[0]) / stride + 1,
-    (size_input[1] - size_params[1]) / stride + 1,
-    num_features,
+      (size_input[0] - size_params[0]) / stride + 1,
+      (size_input[1] - size_params[1]) / stride + 1,
+      num_features,
   };
-  // clang-format on
 
-  output = std::vector<Tensor>(T, Tensor(size_output));
   params = Tensor::Random(size_params);
   params *= 1.0f / sqrt(sizes[0] * sizes[1] * size_input[2]);
 
-  InitInternalSensitivity();
+  InitBuffers(size_output);
 }
 
 void Convolution2D::Forward(size_t batch_size) {
@@ -67,7 +67,7 @@ void Convolution2D::Forward(size_t batch_size) {
 
   #pragma omp parallel for if(batch_size > 1)
   for (size_t batch = 0; batch < batch_size; ++batch) {
-    const float* __restrict__ I = input[batch]->values.data();
+    const float* __restrict__ I = inputs[0]->output[batch].values.data();
     float* __restrict__ O = output[batch].values.data();
     std::fill_n(O, out_w * out_h * out_f, 0.f);
 
@@ -112,51 +112,64 @@ void Convolution2D::Backward(size_t batch_size) {
   const size_t out_h = size_output[1];
   const size_t out_f = size_output[2];
   const size_t filter_stride = kw * kh * kc;
+  const size_t params_size = params.values.size();
   const float* __restrict__ P = params.values.data();
+  float* __restrict__ PG = params_grad.values.data();
 
-  #pragma omp parallel for if(batch_size > 1)
-  for (size_t batch = 0; batch < batch_size; ++batch) {
-    const float* __restrict__ OS = output_sensitivity[batch]->values.data();
-    float* __restrict__ IS = input_sensitivity[batch].values.data();
-    const float* __restrict__ I = input[batch]->values.data();
-    float* __restrict__ PS = params_sensitivity[batch].values.data();
+  #pragma omp parallel if(batch_size > 1)
+  {
+    std::vector<float> local_ps(params_size, 0.f);
+    float* __restrict__ PS = local_ps.data();
 
-    std::fill_n(IS, in_w * in_h * kc, 0.f);
-    for (size_t f = 0; f < out_f; ++f) {
-      const float* __restrict__ pf = P + f * filter_stride;
-      float* __restrict__ psf = PS + f * filter_stride;
-      const float* __restrict__ osf = OS + f * out_w * out_h;
-      for (size_t y = 0; y < out_h; ++y) {
-        const float* __restrict__ os_row = osf + y * out_w;
-        const float* __restrict__ p = pf;
-        float* __restrict__ ps = psf;
-        for (size_t dz = 0; dz < kc; ++dz) {
-          const size_t z_off = dz * in_w * in_h;
-          for (size_t dy = 0; dy < kh; ++dy) {
-            const size_t y_off = z_off + (stride * y + dy) * in_w;
-            for (size_t dx = 0; dx < kw; ++dx) {
-              const float w = *p++;
-              const float* __restrict__ in_row = I + y_off + dx;
-              float* __restrict__ is_row = IS + y_off + dx;
-              float ps_acc = 0.f;
-              if (stride == 1) {
-                #pragma omp simd reduction(+:ps_acc)
-                for (size_t x = 0; x < out_w; ++x) {
-                  const float os = os_row[x];
-                  is_row[x] += w * os;
-                  ps_acc += in_row[x] * os;
+    #pragma omp for
+    for (size_t batch = 0; batch < batch_size; ++batch) {
+      const float* __restrict__ OS = grad[batch].values.data();
+      float* __restrict__ IS = inputs[0]->grad[batch].values.data();
+      const float* __restrict__ I = inputs[0]->output[batch].values.data();
+
+      for (size_t f = 0; f < out_f; ++f) {
+        const float* __restrict__ pf = P + f * filter_stride;
+        float* __restrict__ psf = PS + f * filter_stride;
+        const float* __restrict__ osf = OS + f * out_w * out_h;
+        for (size_t y = 0; y < out_h; ++y) {
+          const float* __restrict__ os_row = osf + y * out_w;
+          const float* __restrict__ p = pf;
+          float* __restrict__ ps = psf;
+          for (size_t dz = 0; dz < kc; ++dz) {
+            const size_t z_off = dz * in_w * in_h;
+            for (size_t dy = 0; dy < kh; ++dy) {
+              const size_t y_off = z_off + (stride * y + dy) * in_w;
+              for (size_t dx = 0; dx < kw; ++dx) {
+                const float w = *p++;
+                const float* __restrict__ in_row = I + y_off + dx;
+                float* __restrict__ is_row = IS + y_off + dx;
+                float ps_acc = 0.f;
+                if (stride == 1) {
+                  #pragma omp simd reduction(+:ps_acc)
+                  for (size_t x = 0; x < out_w; ++x) {
+                    const float os = os_row[x];
+                    is_row[x] += w * os;
+                    ps_acc += in_row[x] * os;
+                  }
+                } else {
+                  for (size_t x = 0; x < out_w; ++x) {
+                    const float os = os_row[x];
+                    is_row[stride * x] += w * os;
+                    ps_acc += in_row[stride * x] * os;
+                  }
                 }
-              } else {
-                for (size_t x = 0; x < out_w; ++x) {
-                  const float os = os_row[x];
-                  is_row[stride * x] += w * os;
-                  ps_acc += in_row[stride * x] * os;
-                }
+                *ps++ += ps_acc;
               }
-              *ps++ += ps_acc;
             }
           }
         }
+      }
+    }
+
+    #pragma omp critical
+    {
+      for (size_t i = 0; i < params_size; ++i) {
+        PG[i] += PS[i];
       }
     }
   }

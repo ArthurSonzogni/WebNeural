@@ -1,9 +1,13 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#include "node/Node.hpp"
+#include <string>
+#include <vector>
+#include "Graph.hpp"
 #include "LossFunction.hpp"
+#include "Optimizer.hpp"
 #include "PostUpdateFunction.hpp"
+#include "node/Node.hpp"
 
 struct Example {
   Tensor input;
@@ -31,15 +35,16 @@ class Model {
 
   Node* input;
   Node* output;
+  Graph graph;
+  Adam optimizer;
   std::vector<Example> examples;
   size_t iteration = 0;
-  size_t batch_size = Node::T;
+  size_t batch_size = 64;
 
   LossFunction::F* loss_function = LossFunction::SquaredDifference;
   PostUpdateFunction::F post_update_function = PostUpdateFunction::None();
 
  private:
-  std::vector<Node*> nodes;  // ]input, output]
   float last_error = 0.f;
 };
 
